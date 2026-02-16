@@ -3,7 +3,7 @@
 
 window.API_CONFIG = {
     // Cloudflare Tunnel URL - Backend API
-    API_BASE_URL: 'https://motivation-hunt-snake-anybody.trycloudflare.com/api',
+    API_BASE_URL: 'https://sterling-deadline-solomon-joins.trycloudflare.com',
 };
 
 console.log('🔧 API Configuration loaded');
