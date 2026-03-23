@@ -3,7 +3,7 @@
 
 window.API_CONFIG = {
     // Cloudflare Tunnel URL - Backend API
-    API_BASE_URL: 'https://sterling-deadline-solomon-joins.trycloudflare.com',
+    API_BASE_URL: 'https://henderson-plc-grill-television.trycloudflare.com/api',
 };
 
 console.log('🔧 API Configuration loaded');
