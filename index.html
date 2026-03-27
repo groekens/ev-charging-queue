@@ -495,9 +495,25 @@
             }
 
             async saveToken(trigram, token) {
+                // Sauvegarder localement
                 const tokens = await this.getStoredTokens();
                 tokens[trigram] = token;
                 await window.storage.set('fcm-tokens', JSON.stringify(tokens), true);
+                
+                // Sauvegarder via Cloud Function
+                try {
+                    const response = await fetch('https://savetoken-lhbed5jb2q-uc.a.run.app', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ trigram, token })
+                    });
+                    
+                    if (!response.ok) {
+                        console.error('Error saving token to Firestore');
+                    }
+                } catch (error) {
+                    console.error('Error calling saveToken function:', error);
+                }
             }
 
             checkDailyReset() {
@@ -616,10 +632,18 @@
             }
 
             async sendNotification(trigram, title, body) {
-                // Note: Pour envoyer des notifications, vous aurez besoin d'un backend
-                // Firebase Cloud Functions ou un petit serveur qui utilise l'API Firebase Admin
-                // Pour l'instant, on log juste
-                console.log(`Would send notification to ${trigram}: ${title} - ${body}`);
+                try {
+                    const response = await fetch('https://sendnotification-lhbed5jb2q-uc.a.run.app', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ trigram, title, body })
+                    });
+                    
+                    const result = await response.json();
+                    console.log('Notification sent:', result);
+                } catch (error) {
+                    console.error('Error sending notification:', error);
+                }
             }
 
             async reportSpotFree(site) {
