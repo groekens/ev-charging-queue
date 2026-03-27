@@ -3,7 +3,7 @@
 
 window.API_CONFIG = {
     // Cloudflare Tunnel URL - Backend API
-    API_BASE_URL: 'https://henderson-plc-grill-television.trycloudflare.com/api',
+    API_BASE_URL: 'https://duo-crew-kinase-channels.trycloudflare.com',
 };
 
 console.log('🔧 API Configuration loaded');
