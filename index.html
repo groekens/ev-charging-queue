@@ -319,6 +319,18 @@
                     alert('Please enter your trigram first');
                     return;
                 }
+                
+                // Vérifier si les notifications sont supportées
+                if (!('Notification' in window)) {
+                    alert('Your browser does not support notifications. Please use Chrome, Firefox, or Safari.');
+                    return;
+                }
+                
+                if (!('serviceWorker' in navigator)) {
+                    alert('Your browser does not support service workers. Please use a modern browser.');
+                    return;
+                }
+                
                 try {
                     const permission = await Notification.requestPermission();
                     if (permission !== 'granted') {
@@ -365,11 +377,18 @@
             }
 
             setUserTrigram(trigram) {
-                this.state.userTrigram = trigram.toUpperCase().trim();
-                if (!this.state.userTrigram) {
-                    alert('Please enter a valid trigram');
+                const cleanTrigram = trigram.toUpperCase().trim();
+                
+                // Si le trigram est vide, on réinitialise (pour le bouton "Change")
+                if (!cleanTrigram) {
+                    this.state.userTrigram = '';
+                    localStorage.removeItem('userTrigram');
+                    this.render();
                     return;
                 }
+                
+                // Sinon on valide et on enregistre
+                this.state.userTrigram = cleanTrigram;
                 localStorage.setItem('userTrigram', this.state.userTrigram);
                 this.render();
             }
