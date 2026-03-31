@@ -366,7 +366,7 @@
 
             async saveToken(trigram, token) {
                 try {
-                    await fetch('https://savetoken-lhbed5jb2q-uc.a.run.app', {
+                    await fetch('https://us-central1-ev-charging-queue.cloudfunctions.net/saveToken', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ trigram, token })
@@ -425,7 +425,7 @@
 
             async sendNotification(trigram, title, body) {
                 try {
-                    await fetch('https://sendnotification-lhbed5jb2q-uc.a.run.app', {
+                    await fetch('https://us-central1-ev-charging-queue.cloudfunctions.net/sendNotification', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ trigram, title, body })
