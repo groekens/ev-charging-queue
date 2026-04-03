@@ -39,32 +39,39 @@
             align-items: center;
             gap: 12px;
             padding: 12px;
-            background: #f3f4f6;
+            background: #d1fae5;
+            color: #065f46;
             border-radius: 8px;
             margin-bottom: 20px;
             font-size: 14px;
         }
-        .notification-status.enabled { background: #d1fae5; color: #065f46; }
-        .notification-status.disabled { background: #fee2e2; color: #991b1b; }
-        .trigram-input-section { margin-bottom: 24px; }
-        .trigram-input-section label {
+        .input-section { margin-bottom: 20px; }
+        .input-section label {
             display: block;
             font-weight: 600;
             margin-bottom: 8px;
             color: #374151;
         }
-        .trigram-input-section input {
+        .input-section input {
             width: 100%;
             padding: 12px;
             border: 2px solid #e5e7eb;
             border-radius: 8px;
             font-size: 16px;
-            text-transform: uppercase;
             transition: border-color 0.2s;
         }
-        .trigram-input-section input:focus {
+        .input-section input:focus {
             outline: none;
             border-color: #667eea;
+        }
+        .input-section input.trigram {
+            text-transform: uppercase;
+        }
+        .input-section small {
+            display: block;
+            margin-top: 4px;
+            color: #6b7280;
+            font-size: 13px;
         }
         .trigram-display {
             display: inline-block;
@@ -74,6 +81,16 @@
             border-radius: 6px;
             font-weight: 600;
             font-size: 14px;
+        }
+        .discord-display {
+            display: inline-block;
+            background: #5865f2;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 14px;
+            margin-left: 8px;
         }
         .site-section { margin-bottom: 24px; }
         .site-section h3 {
@@ -205,7 +222,6 @@
 
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
-        import { getMessaging, getToken, onMessage } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging.js';
         import { getFirestore, doc, setDoc, getDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
 
         const firebaseConfig = {
@@ -217,29 +233,32 @@
             appId: "1:260636724772:web:2d05d51d46f3cdd55a92b1"
         };
 
-        const VAPID_KEY = "BLkB9s36CqTztC4c4OIf0ijO_hPHQm-4bKacmamRtb-ryIH0PLJL5xz08AKqbyvvNc9nZUNHpE6n4--xPMZM4fk";
+        const DISCORD_WEBHOOK = "https://discord.com/api/webhooks/1489533546434531451/id6181aUtcNJeM4Aj9tXrEsyW0ySpW0HMGCWZb4P2ubxy2rLfY40AJZTDddXO-oNeN6J";
         const app = initializeApp(firebaseConfig);
-        const messaging = getMessaging(app);
         const db = getFirestore(app);
-        const MAX_SPOTS = { 'LLN1': 1, 'LLN2': 1 };
+        const MAX_SPOTS = { 'LLN1': 1, 'LLN2': 4 };
 
         class EVChargingApp {
             constructor() {
                 this.state = {
                     userTrigram: localStorage.getItem('userTrigram') || '',
+                    userDiscord: '',
                     sites: { 'LLN1': { charging: [] }, 'LLN2': { charging: [] } },
                     globalQueue: [],
                     lastReset: null
                 };
-                this.notificationsEnabled = localStorage.getItem('notificationsEnabled') === 'true';
-                this.fcmToken = null;
-                this.messaging = messaging;
                 this.db = db;
                 this.init();
             }
 
             async init() {
                 await this.loadState();
+                
+                // Si trigram existe, charger le Discord associé
+                if (this.state.userTrigram) {
+                    await this.loadUserDiscord();
+                }
+                
                 this.checkDailyReset();
                 this.render();
                 
@@ -253,16 +272,30 @@
                         this.render();
                     }
                 });
-                
-                onMessage(this.messaging, (payload) => {
-                    console.log('Message received:', payload);
-                    if (Notification.permission === 'granted') {
-                        new Notification(payload.notification.title, {
-                            body: payload.notification.body,
-                            icon: '/ev-charging-queue/icon-192.png'
-                        });
+            }
+
+            async loadUserDiscord() {
+                try {
+                    const userDocRef = doc(this.db, 'users', this.state.userTrigram);
+                    const docSnap = await getDoc(userDocRef);
+                    if (docSnap.exists()) {
+                        this.state.userDiscord = docSnap.data().discord || '';
                     }
-                });
+                } catch (error) {
+                    console.error('Error loading user Discord:', error);
+                }
+            }
+
+            async saveUserDiscord(trigram, discord) {
+                try {
+                    const userDocRef = doc(this.db, 'users', trigram);
+                    await setDoc(userDocRef, {
+                        discord: discord,
+                        updatedAt: new Date().toISOString()
+                    });
+                } catch (error) {
+                    console.error('Error saving user Discord:', error);
+                }
             }
 
             async loadState() {
@@ -314,83 +347,64 @@
                 await this.saveState();
             }
 
-            async enableNotifications() {
-                if (!this.state.userTrigram) {
-                    alert('Please enter your trigram first');
+            async setUserInfo() {
+                const trigram = document.getElementById('trigram-input').value.toUpperCase().trim();
+                
+                if (!trigram) {
+                    alert('Please enter your trigram');
                     return;
                 }
                 
-                // Vérifier si les notifications sont supportées
-                if (!('Notification' in window)) {
-                    alert('Your browser does not support notifications. Please use Chrome, Firefox, or Safari.');
-                    return;
-                }
+                this.state.userTrigram = trigram;
+                localStorage.setItem('userTrigram', trigram);
                 
-                if (!('serviceWorker' in navigator)) {
-                    alert('Your browser does not support service workers. Please use a modern browser.');
-                    return;
-                }
+                // Charger le Discord associé
+                await this.loadUserDiscord();
                 
-                try {
-                    const permission = await Notification.requestPermission();
-                    if (permission !== 'granted') {
-                        alert('Notification permission denied');
+                // Si pas de Discord, demander
+                if (!this.state.userDiscord) {
+                    const discord = document.getElementById('discord-input').value.trim();
+                    if (!discord) {
+                        alert('Please enter your Discord username');
                         return;
                     }
-                    const registration = await navigator.serviceWorker.register('/ev-charging-queue/firebase-messaging-sw.js');
-                    await navigator.serviceWorker.ready;
-                    const token = await getToken(this.messaging, { 
-                        vapidKey: VAPID_KEY,
-                        serviceWorkerRegistration: registration
-                    });
-                    if (token) {
-                        this.fcmToken = token;
-                        await this.saveToken(this.state.userTrigram, token);
-                        this.notificationsEnabled = true;
-                        localStorage.setItem('notificationsEnabled', 'true');
-                        alert('✅ Notifications enabled! You will be notified when it\'s your turn.');
-                        this.render();
-                    }
-                } catch (error) {
-                    console.error('Error enabling notifications:', error);
-                    alert('Failed to enable notifications: ' + error.message);
+                    this.state.userDiscord = discord;
+                    await this.saveUserDiscord(trigram, discord);
                 }
-            }
-
-            async disableNotifications() {
-                this.notificationsEnabled = false;
-                localStorage.removeItem('notificationsEnabled');
-                alert('Notifications disabled');
+                
                 this.render();
             }
 
-            async saveToken(trigram, token) {
+            resetUser() {
+                this.state.userTrigram = '';
+                this.state.userDiscord = '';
+                localStorage.removeItem('userTrigram');
+                this.render();
+            }
+
+            async sendDiscordNotification(trigram, message) {
                 try {
-                    await fetch('https://us-central1-ev-charging-queue.cloudfunctions.net/saveToken', {
+                    // Récupérer le Discord de l'utilisateur
+                    const userDocRef = doc(this.db, 'users', trigram);
+                    const docSnap = await getDoc(userDocRef);
+                    
+                    if (!docSnap.exists() || !docSnap.data().discord) {
+                        console.error('No Discord username found for', trigram);
+                        return;
+                    }
+                    
+                    const discord = docSnap.data().discord;
+                    
+                    await fetch(DISCORD_WEBHOOK, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ trigram, token })
+                        body: JSON.stringify({
+                            content: `@${discord} ${message}`
+                        })
                     });
                 } catch (error) {
-                    console.error('Error calling saveToken function:', error);
+                    console.error('Error sending Discord notification:', error);
                 }
-            }
-
-            setUserTrigram(trigram) {
-                const cleanTrigram = trigram.toUpperCase().trim();
-                
-                // Si le trigram est vide, on réinitialise (pour le bouton "Change")
-                if (!cleanTrigram) {
-                    this.state.userTrigram = '';
-                    localStorage.removeItem('userTrigram');
-                    this.render();
-                    return;
-                }
-                
-                // Sinon on valide et on enregistre
-                this.state.userTrigram = cleanTrigram;
-                localStorage.setItem('userTrigram', this.state.userTrigram);
-                this.render();
             }
 
             async startCharging(site) {
@@ -418,29 +432,23 @@
                 siteData.charging = siteData.charging.filter(t => t !== this.state.userTrigram);
                 const nextPerson = this.state.globalQueue.find(item => item.preference === 'both' || item.preference === site);
                 if (nextPerson) {
-                    await this.sendNotification(nextPerson.trigram, 'Your turn! 🔌', `A charging spot is now available at ${site}`);
+                    await this.sendDiscordNotification(
+                        nextPerson.trigram, 
+                        `🔌 **Your turn!** A charging spot is now available at **${site}**`
+                    );
                 }
                 await this.saveState();
-            }
-
-            async sendNotification(trigram, title, body) {
-                try {
-                    await fetch('https://us-central1-ev-charging-queue.cloudfunctions.net/sendNotification', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ trigram, title, body })
-                    });
-                } catch (error) {
-                    console.error('Error sending notification:', error);
-                }
             }
 
             async reportSpotFree(site) {
                 if (confirm(`Confirm: Is there really a free spot at ${site}?`)) {
                     const nextPerson = this.state.globalQueue.find(item => item.preference === 'both' || item.preference === site);
                     if (nextPerson) {
-                        await this.sendNotification(nextPerson.trigram, 'Spot reported free! 🔌', `Someone reported a free spot at ${site}`);
-                        alert(`${nextPerson.trigram} has been notified`);
+                        await this.sendDiscordNotification(
+                            nextPerson.trigram,
+                            `🔌 **Spot reported free!** Someone reported a free spot at **${site}**`
+                        );
+                        alert(`${nextPerson.trigram} has been notified via Discord`);
                     } else {
                         alert(`No one is waiting for ${site} at the moment.`);
                     }
@@ -458,6 +466,12 @@
                     alert('Please enter your trigram');
                     return;
                 }
+                
+                if (!this.state.userDiscord) {
+                    alert('Please set up your Discord username first (click Change)');
+                    return;
+                }
+                
                 const alreadyInQueue = this.state.globalQueue.some(item => item.trigram === this.state.userTrigram);
                 if (alreadyInQueue) {
                     alert('You are already in the queue');
@@ -508,10 +522,30 @@
                 const userStatus = this.getUserStatus();
                 let html = '';
 
-                if (!this.state.userTrigram) {
-                    html += `<div class="card"><div class="trigram-input-section"><label for="trigram-input">Enter your trigram:</label><input type="text" id="trigram-input" placeholder="e.g., GRO" maxlength="4" autocomplete="off"/><div style="margin-top: 12px;"><button class="btn btn-primary" onclick="app.setUserTrigram(document.getElementById('trigram-input').value)">Confirm</button></div></div></div>`;
+                if (!this.state.userTrigram || !this.state.userDiscord) {
+                    html += `<div class="card">`;
+                    
+                    html += `<div class="input-section">
+                        <label for="trigram-input">Your trigram:</label>
+                        <input type="text" id="trigram-input" class="trigram" placeholder="e.g., GRO" maxlength="4" autocomplete="off" value="${this.state.userTrigram}"/>
+                    </div>`;
+                    
+                    if (!this.state.userDiscord) {
+                        html += `<div class="input-section">
+                            <label for="discord-input">Your Discord username:</label>
+                            <input type="text" id="discord-input" placeholder="e.g., gabriel_roekens" autocomplete="off"/>
+                            <small>You'll receive notifications via Discord mention</small>
+                        </div>`;
+                    }
+                    
+                    html += `<div style="margin-top: 12px;">
+                        <button class="btn btn-primary" onclick="app.setUserInfo()">Confirm</button>
+                    </div></div>`;
                 } else {
-                    html += `<div class="notification-status ${this.notificationsEnabled ? 'enabled' : 'disabled'}"><span>${this.notificationsEnabled ? '🔔' : '🔕'}</span><span>${this.notificationsEnabled ? 'Push notifications enabled' : 'Push notifications disabled'}</span><button class="btn btn-small" onclick="app.${this.notificationsEnabled ? 'disableNotifications' : 'enableNotifications'}()" style="margin-left: auto;">${this.notificationsEnabled ? 'Disable' : 'Enable'}</button></div>`;
+                    html += `<div class="notification-status">
+                        <span>💬</span>
+                        <span>Discord notifications enabled for @${this.state.userDiscord}</span>
+                    </div>`;
 
                     if (userStatus.status === 'charging') {
                         html += `<div class="alert alert-success"><span style="font-size: 24px;">🔌</span><div><strong>You are charging at ${userStatus.site}</strong><div style="font-size: 14px; margin-top: 4px;">Don't forget to signal when you're done</div></div></div>`;
@@ -520,7 +554,7 @@
                         html += `<div class="alert ${isNextInLine ? 'alert-warning' : 'alert-info'}"><span style="font-size: 24px;">${isNextInLine ? '⏰' : '⏳'}</span><div><strong>${isNextInLine ? 'You are next in line!' : `Position ${userStatus.position} in queue`}</strong><div style="font-size: 14px; margin-top: 4px;">${userStatus.preference === 'both' ? 'Waiting for any site' : `Waiting for ${userStatus.preference} only`}</div></div></div>`;
                     }
 
-                    html += `<div class="card"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;"><div><span style="color: #6b7280; font-size: 14px;">Logged in as</span><div class="trigram-display" style="margin-top: 8px;">${this.state.userTrigram}</div></div><button class="btn btn-small" onclick="app.setUserTrigram('')" style="background: #9ca3af; color: white;">Change</button></div>`;
+                    html += `<div class="card"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;"><div><span style="color: #6b7280; font-size: 14px;">Logged in as</span><div style="margin-top: 8px;"><span class="trigram-display">${this.state.userTrigram}</span><span class="discord-display">@${this.state.userDiscord}</span></div></div><button class="btn btn-small" onclick="app.resetUser()" style="background: #9ca3af; color: white;">Change</button></div>`;
 
                     ['LLN1', 'LLN2'].forEach(site => {
                         const siteData = this.state.sites[site];
