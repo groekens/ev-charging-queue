@@ -4,8 +4,22 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="EV Charging Queue Management">
-    <meta name="theme-color" content="#10b981">
+    <meta name="theme-color" content="#667eea">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="EV Queue">
     <title>EV Charging Queue ⚡</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="eclair.png">
+    <link rel="shortcut icon" type="image/png" href="eclair.png">
+    
+    <!-- Apple Touch Icons -->
+    <link rel="apple-touch-icon" href="eclair.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="eclair.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="eclair.png">
+    <link rel="apple-touch-icon" sizes="167x167" href="eclair.png">
+    
     <link rel="manifest" href="manifest.json">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -487,6 +501,26 @@
                 if (alreadyCharging) {
                     alert('You are already charging at another site');
                     return;
+                }
+                
+                // Si le site semble Full, demander confirmation
+                if (siteData.charging.length >= MAX_SPOTS[site]) {
+                    const userStatus = this.getUserStatus();
+                    const isFirstInQueue = userStatus.status === 'queued' && userStatus.position === 1;
+                    
+                    let confirmMessage = `${site} appears to be Full (${siteData.charging.length}/${MAX_SPOTS[site]}).\n\n`;
+                    
+                    if (isFirstInQueue) {
+                        confirmMessage += 'You are first in queue, so this is expected if a spot just freed up.\n\n';
+                    } else {
+                        confirmMessage += '⚠️ Are you sure you have a free spot and that it\'s your turn?\n\n';
+                    }
+                    
+                    confirmMessage += 'Confirm that you are plugging in?';
+                    
+                    if (!confirm(confirmMessage)) {
+                        return;
+                    }
                 }
                 
                 // Toujours autoriser - l'utilisateur sur place sait mieux que le système
