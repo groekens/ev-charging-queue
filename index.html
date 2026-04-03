@@ -34,17 +34,6 @@
             margin-bottom: 20px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
         }
-        .notification-status {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 12px;
-            background: #d1fae5;
-            color: #065f46;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            font-size: 14px;
-        }
         .input-section { margin-bottom: 20px; }
         .input-section label {
             display: block;
@@ -64,7 +53,7 @@
             outline: none;
             border-color: #667eea;
         }
-        .input-section input.trigram {
+        .input-section input.xgram {
             text-transform: uppercase;
         }
         .input-section small {
@@ -73,7 +62,16 @@
             color: #6b7280;
             font-size: 13px;
         }
-        .trigram-display {
+        .help-link {
+            display: inline-block;
+            margin-top: 8px;
+            color: #667eea;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        .help-link:hover { text-decoration: underline; }
+        .xgram-display {
             display: inline-block;
             background: #667eea;
             color: white;
@@ -81,16 +79,6 @@
             border-radius: 6px;
             font-weight: 600;
             font-size: 14px;
-        }
-        .discord-display {
-            display: inline-block;
-            background: #5865f2;
-            color: white;
-            padding: 6px 12px;
-            border-radius: 6px;
-            font-weight: 600;
-            font-size: 14px;
-            margin-left: 8px;
         }
         .site-section { margin-bottom: 24px; }
         .site-section h3 {
@@ -101,6 +89,8 @@
             align-items: center;
             gap: 8px;
         }
+        .site-lln1 h3 { color: #ef4444; }
+        .site-lln2 h3 { color: #3b82f6; }
         .station-info {
             display: flex;
             justify-content: space-between;
@@ -109,7 +99,10 @@
             background: #f9fafb;
             border-radius: 8px;
             margin-bottom: 12px;
+            border-left: 4px solid #10b981;
         }
+        .site-lln1 .station-info { border-left-color: #ef4444; background: #fef2f2; }
+        .site-lln2 .station-info { border-left-color: #3b82f6; background: #eff6ff; }
         .station-status {
             display: flex;
             align-items: center;
@@ -142,6 +135,8 @@
         .btn-secondary:hover:not(:disabled) { background: #5568d3; transform: translateY(-2px); }
         .btn-danger { background: #ef4444; color: white; }
         .btn-danger:hover:not(:disabled) { background: #dc2626; transform: translateY(-2px); }
+        .btn-warning { background: #f59e0b; color: white; }
+        .btn-warning:hover:not(:disabled) { background: #d97706; transform: translateY(-2px); }
         .btn-small { padding: 8px 16px; font-size: 13px; }
         .action-buttons { display: flex; gap: 12px; flex-wrap: wrap; }
         .queue-section { margin-top: 24px; }
@@ -171,7 +166,7 @@
             font-weight: 600;
             font-size: 14px;
         }
-        .queue-trigram { font-weight: 600; font-size: 16px; color: #1f2937; }
+        .queue-xgram { font-weight: 600; font-size: 16px; color: #1f2937; }
         .queue-site { font-size: 12px; color: #6b7280; margin-left: 8px; }
         .empty-state { text-align: center; padding: 32px; color: #9ca3af; }
         .empty-state-icon { font-size: 48px; margin-bottom: 12px; }
@@ -209,6 +204,12 @@
             .btn { width: 100%; justify-content: center; }
         }
         .loading { text-align: center; padding: 20px; color: #6b7280; }
+        .snooze-notice {
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: 8px;
+            font-style: italic;
+        }
     </style>
 </head>
 <body>
@@ -237,29 +238,32 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const MAX_SPOTS = { 'LLN1': 1, 'LLN2': 4 };
+        const REMINDER_DELAY = 15 * 60 * 1000; // 15 minutes
 
         class EVChargingApp {
             constructor() {
                 this.state = {
-                    userTrigram: localStorage.getItem('userTrigram') || '',
+                    userXgram: localStorage.getItem('userXgram') || '',
                     userDiscord: '',
                     sites: { 'LLN1': { charging: [] }, 'LLN2': { charging: [] } },
                     globalQueue: [],
-                    lastReset: null
+                    lastReset: null,
+                    notificationTimestamps: JSON.parse(localStorage.getItem('notificationTimestamps') || '{}')
                 };
                 this.db = db;
+                this.reminderInterval = null;
                 this.init();
             }
 
             async init() {
                 await this.loadState();
                 
-                // Si trigram existe, charger le Discord associé
-                if (this.state.userTrigram) {
+                if (this.state.userXgram) {
                     await this.loadUserDiscord();
                 }
                 
                 this.checkDailyReset();
+                this.startReminderChecker();
                 this.render();
                 
                 const stateDocRef = doc(this.db, 'state', 'current');
@@ -269,14 +273,70 @@
                         this.state.sites = data.sites || this.state.sites;
                         this.state.globalQueue = data.globalQueue || [];
                         this.state.lastReset = data.lastReset;
+                        this.checkForMyTurn();
                         this.render();
                     }
                 });
             }
 
+            startReminderChecker() {
+                // Vérifier toutes les minutes s'il faut envoyer un rappel
+                this.reminderInterval = setInterval(() => {
+                    this.checkAndSendReminders();
+                }, 60 * 1000);
+            }
+
+            checkAndSendReminders() {
+                const now = Date.now();
+                const userStatus = this.getUserStatus();
+                
+                // Si l'utilisateur est premier dans la queue
+                if (userStatus.status === 'queued' && userStatus.position === 1) {
+                    const notifTime = this.state.notificationTimestamps[this.state.userXgram];
+                    
+                    if (notifTime && (now - notifTime) >= REMINDER_DELAY) {
+                        // Envoyer un rappel
+                        this.sendReminderNotification();
+                        // Réinitialiser pour ne pas spam
+                        delete this.state.notificationTimestamps[this.state.userXgram];
+                        localStorage.setItem('notificationTimestamps', JSON.stringify(this.state.notificationTimestamps));
+                    }
+                }
+            }
+
+            async sendReminderNotification() {
+                if (!this.state.userDiscord) return;
+                
+                try {
+                    const message = `⏰ **Reminder!** You've been notified 15 minutes ago. Are you still available to charge? If not, please snooze your turn in the app.`;
+                    
+                    await fetch(DISCORD_WEBHOOK, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            content: `<@${this.state.userDiscord}> ${message}`
+                        })
+                    });
+                } catch (error) {
+                    console.error('Error sending reminder:', error);
+                }
+            }
+
+            checkForMyTurn() {
+                const userStatus = this.getUserStatus();
+                
+                // Si je viens de devenir premier dans la queue, enregistrer le timestamp
+                if (userStatus.status === 'queued' && userStatus.position === 1) {
+                    if (!this.state.notificationTimestamps[this.state.userXgram]) {
+                        this.state.notificationTimestamps[this.state.userXgram] = Date.now();
+                        localStorage.setItem('notificationTimestamps', JSON.stringify(this.state.notificationTimestamps));
+                    }
+                }
+            }
+
             async loadUserDiscord() {
                 try {
-                    const userDocRef = doc(this.db, 'users', this.state.userTrigram);
+                    const userDocRef = doc(this.db, 'users', this.state.userXgram);
                     const docSnap = await getDoc(userDocRef);
                     if (docSnap.exists()) {
                         this.state.userDiscord = docSnap.data().discord || '';
@@ -286,9 +346,9 @@
                 }
             }
 
-            async saveUserDiscord(trigram, discord) {
+            async saveUserDiscord(xgram, discord) {
                 try {
-                    const userDocRef = doc(this.db, 'users', trigram);
+                    const userDocRef = doc(this.db, 'users', xgram);
                     await setDoc(userDocRef, {
                         discord: discord,
                         updatedAt: new Date().toISOString()
@@ -347,54 +407,48 @@
                 await this.saveState();
             }
 
-            async setUserInfo() {
-                const trigram = document.getElementById('trigram-input').value.toUpperCase().trim();
+            async setUserXgram() {
+                const xgram = document.getElementById('xgram-input').value.toUpperCase().trim();
                 
-                if (!trigram) {
-                    alert('Please enter your trigram');
+                if (!xgram) {
+                    alert('Please enter your Xgram');
                     return;
                 }
                 
-                this.state.userTrigram = trigram;
-                localStorage.setItem('userTrigram', trigram);
+                this.state.userXgram = xgram;
+                localStorage.setItem('userXgram', xgram);
                 
-                // Charger le Discord associé
                 await this.loadUserDiscord();
+                this.render();
+            }
+
+            async setUserDiscord() {
+                const discord = document.getElementById('discord-input').value.trim();
                 
-                // Si pas de Discord, demander
-                if (!this.state.userDiscord) {
-                    const discord = document.getElementById('discord-input').value.trim();
-                    if (!discord) {
-                        alert('Please enter your Discord ID');
-                        return;
-                    }
-                    // Vérifier que c'est un nombre (ID Discord)
-                    if (!/^\d+$/.test(discord)) {
-                        alert('Discord ID must be a number. Right-click your name in Discord → Copy ID');
-                        return;
-                    }
-                    this.state.userDiscord = discord;
-                    await this.saveUserDiscord(trigram, discord);
+                if (!discord) {
+                    alert('Please enter your Discord ID or username');
+                    return;
                 }
                 
+                this.state.userDiscord = discord;
+                await this.saveUserDiscord(this.state.userXgram, discord);
                 this.render();
             }
 
             resetUser() {
-                this.state.userTrigram = '';
+                this.state.userXgram = '';
                 this.state.userDiscord = '';
-                localStorage.removeItem('userTrigram');
+                localStorage.removeItem('userXgram');
                 this.render();
             }
 
-            async sendDiscordNotification(trigram, message) {
+            async sendDiscordNotification(xgram, message) {
                 try {
-                    // Récupérer le Discord de l'utilisateur
-                    const userDocRef = doc(this.db, 'users', trigram);
+                    const userDocRef = doc(this.db, 'users', xgram);
                     const docSnap = await getDoc(userDocRef);
                     
                     if (!docSnap.exists() || !docSnap.data().discord) {
-                        console.error('No Discord ID found for', trigram);
+                        console.error('No Discord ID found for', xgram);
                         return;
                     }
                     
@@ -413,12 +467,12 @@
             }
 
             async startCharging(site) {
-                if (!this.state.userTrigram) {
-                    alert('Please enter your trigram');
+                if (!this.state.userXgram) {
+                    alert('Please enter your Xgram');
                     return;
                 }
                 const siteData = this.state.sites[site];
-                const alreadyCharging = Object.values(this.state.sites).some(s => s.charging.includes(this.state.userTrigram));
+                const alreadyCharging = Object.values(this.state.sites).some(s => s.charging.includes(this.state.userXgram));
                 if (alreadyCharging) {
                     alert('You are already charging at another site');
                     return;
@@ -427,18 +481,23 @@
                     alert('No charging spot available. Use "Join Queue" to wait.');
                     return;
                 }
-                siteData.charging.push(this.state.userTrigram);
-                this.state.globalQueue = this.state.globalQueue.filter(item => item.trigram !== this.state.userTrigram);
+                siteData.charging.push(this.state.userXgram);
+                this.state.globalQueue = this.state.globalQueue.filter(item => item.xgram !== this.state.userXgram);
+                
+                // Effacer le timestamp de notification
+                delete this.state.notificationTimestamps[this.state.userXgram];
+                localStorage.setItem('notificationTimestamps', JSON.stringify(this.state.notificationTimestamps));
+                
                 await this.saveState();
             }
 
             async finishCharging(site) {
                 const siteData = this.state.sites[site];
-                siteData.charging = siteData.charging.filter(t => t !== this.state.userTrigram);
+                siteData.charging = siteData.charging.filter(t => t !== this.state.userXgram);
                 const nextPerson = this.state.globalQueue.find(item => item.preference === 'both' || item.preference === site);
                 if (nextPerson) {
                     await this.sendDiscordNotification(
-                        nextPerson.trigram, 
+                        nextPerson.xgram, 
                         `🔌 **Your turn!** A charging spot is now available at **${site}**`
                     );
                 }
@@ -450,25 +509,66 @@
                     const nextPerson = this.state.globalQueue.find(item => item.preference === 'both' || item.preference === site);
                     if (nextPerson) {
                         await this.sendDiscordNotification(
-                            nextPerson.trigram,
+                            nextPerson.xgram,
                             `🔌 **Spot reported free!** Someone reported a free spot at **${site}**`
                         );
-                        alert(`${nextPerson.trigram} has been notified via Discord`);
+                        alert(`${nextPerson.xgram} has been notified via Discord`);
                     } else {
                         alert(`No one is waiting for ${site} at the moment.`);
                     }
                 }
             }
 
-            async reportNoSpot() {
-                if (confirm('Confirm: Was your spot not available when you arrived?')) {
-                    alert('You have kept your place in the queue. Sorry for the inconvenience!');
+            async snoozeMyTurn() {
+                if (!confirm('Are you sure you want to snooze your turn? The next person will be notified.')) {
+                    return;
+                }
+                
+                // Trouver mon index dans la queue
+                const myIndex = this.state.globalQueue.findIndex(item => item.xgram === this.state.userXgram);
+                if (myIndex !== -1) {
+                    // Me retirer de la queue
+                    const myItem = this.state.globalQueue.splice(myIndex, 1)[0];
+                    
+                    // Me remettre à la fin
+                    this.state.globalQueue.push(myItem);
+                    
+                    // Notifier la personne suivante
+                    if (this.state.globalQueue.length > 0) {
+                        const nextPerson = this.state.globalQueue[0];
+                        const availableSites = [];
+                        
+                        if (nextPerson.preference === 'both' || nextPerson.preference === 'LLN1') {
+                            if (MAX_SPOTS['LLN1'] - this.state.sites['LLN1'].charging.length > 0) {
+                                availableSites.push('LLN1');
+                            }
+                        }
+                        if (nextPerson.preference === 'both' || nextPerson.preference === 'LLN2') {
+                            if (MAX_SPOTS['LLN2'] - this.state.sites['LLN2'].charging.length > 0) {
+                                availableSites.push('LLN2');
+                            }
+                        }
+                        
+                        if (availableSites.length > 0) {
+                            await this.sendDiscordNotification(
+                                nextPerson.xgram,
+                                `🔌 **Your turn!** A spot is available at **${availableSites.join(' or ')}**`
+                            );
+                        }
+                    }
+                    
+                    // Effacer le timestamp de notification
+                    delete this.state.notificationTimestamps[this.state.userXgram];
+                    localStorage.setItem('notificationTimestamps', JSON.stringify(this.state.notificationTimestamps));
+                    
+                    await this.saveState();
+                    alert('Your turn has been snoozed. You are now at the end of the queue.');
                 }
             }
 
             async joinQueue(preference = 'both') {
-                if (!this.state.userTrigram) {
-                    alert('Please enter your trigram');
+                if (!this.state.userXgram) {
+                    alert('Please enter your Xgram');
                     return;
                 }
                 
@@ -477,7 +577,7 @@
                     return;
                 }
                 
-                const alreadyInQueue = this.state.globalQueue.some(item => item.trigram === this.state.userTrigram);
+                const alreadyInQueue = this.state.globalQueue.some(item => item.xgram === this.state.userXgram);
                 if (alreadyInQueue) {
                     alert('You are already in the queue');
                     return;
@@ -500,22 +600,27 @@
                     }
                 }
                 const timestamp = Date.now();
-                this.state.globalQueue.push({ trigram: this.state.userTrigram, timestamp, preference });
+                this.state.globalQueue.push({ xgram: this.state.userXgram, timestamp, preference });
                 await this.saveState();
             }
 
             async leaveQueue() {
-                this.state.globalQueue = this.state.globalQueue.filter(item => item.trigram !== this.state.userTrigram);
+                this.state.globalQueue = this.state.globalQueue.filter(item => item.xgram !== this.state.userXgram);
+                
+                // Effacer le timestamp de notification
+                delete this.state.notificationTimestamps[this.state.userXgram];
+                localStorage.setItem('notificationTimestamps', JSON.stringify(this.state.notificationTimestamps));
+                
                 await this.saveState();
             }
 
             getUserStatus() {
                 for (const [site, data] of Object.entries(this.state.sites)) {
-                    if (data.charging.includes(this.state.userTrigram)) {
+                    if (data.charging.includes(this.state.userXgram)) {
                         return { status: 'charging', site };
                     }
                 }
-                const queueItem = this.state.globalQueue.find(item => item.trigram === this.state.userTrigram);
+                const queueItem = this.state.globalQueue.find(item => item.xgram === this.state.userXgram);
                 if (queueItem) {
                     return { status: 'queued', position: this.state.globalQueue.indexOf(queueItem) + 1, preference: queueItem.preference };
                 }
@@ -527,39 +632,58 @@
                 const userStatus = this.getUserStatus();
                 let html = '';
 
-                if (!this.state.userTrigram || !this.state.userDiscord) {
-                    html += `<div class="card">`;
-                    
-                    html += `<div class="input-section">
-                        <label for="trigram-input">Your trigram:</label>
-                        <input type="text" id="trigram-input" class="trigram" placeholder="e.g., GRO" maxlength="4" autocomplete="off" value="${this.state.userTrigram}"/>
+                // Étape 1 : Demander le Xgram
+                if (!this.state.userXgram) {
+                    html += `<div class="card">
+                        <div class="input-section">
+                            <label for="xgram-input">Your Xgram (trigram, quadrigram, etc.):</label>
+                            <input type="text" id="xgram-input" class="xgram" placeholder="e.g., GRO, ABCD" maxlength="10" autocomplete="off"/>
+                            <small>Enter your unique identifier</small>
+                        </div>
+                        <div style="margin-top: 12px;">
+                            <button class="btn btn-primary" onclick="app.setUserXgram()">Continue</button>
+                        </div>
                     </div>`;
-                    
-                    if (!this.state.userDiscord) {
-                        html += `<div class="input-section">
-                            <label for="discord-input">Your Discord ID:</label>
+                } 
+                // Étape 2 : Si Xgram existe mais pas de Discord, demander Discord
+                else if (!this.state.userDiscord) {
+                    html += `<div class="card">
+                        <div style="margin-bottom: 20px;">
+                            <span style="color: #6b7280; font-size: 14px;">Logged in as</span>
+                            <div style="margin-top: 8px;">
+                                <span class="xgram-display">${this.state.userXgram}</span>
+                            </div>
+                        </div>
+                        <div class="input-section">
+                            <label for="discord-input">Your Discord ID (recommended) or username:</label>
                             <input type="text" id="discord-input" placeholder="e.g., 687682421847883779" autocomplete="off"/>
-                            <small>💡 How to find it: Discord Settings → Advanced → Developer Mode ON → Right-click your name → Copy ID</small>
-                        </div>`;
-                    }
-                    
-                    html += `<div style="margin-top: 12px;">
-                        <button class="btn btn-primary" onclick="app.setUserInfo()">Confirm</button>
-                    </div></div>`;
-                } else {
-                    html += `<div class="notification-status">
-                        <span>💬</span>
-                        <span>Discord notifications enabled (ID: ${this.state.userDiscord})</span>
+                            <small>💡 To get your Discord ID: 
+                                <a href="https://support.discord.com/hc/en-us/articles/206346498-Where-can-I-find-my-User-Server-Message-ID" target="_blank" class="help-link">Follow this guide →</a>
+                            </small>
+                            <small style="margin-top: 8px;">Or just enter your Discord username (e.g., gabrielgro) - but you won't receive @mentions</small>
+                        </div>
+                        <div style="margin-top: 12px; display: flex; gap: 12px;">
+                            <button class="btn btn-primary" onclick="app.setUserDiscord()">Confirm</button>
+                            <button class="btn btn-small" onclick="app.resetUser()" style="background: #9ca3af; color: white;">Back</button>
+                        </div>
                     </div>`;
-
+                } 
+                // Étape 3 : Interface principale
+                else {
                     if (userStatus.status === 'charging') {
                         html += `<div class="alert alert-success"><span style="font-size: 24px;">🔌</span><div><strong>You are charging at ${userStatus.site}</strong><div style="font-size: 14px; margin-top: 4px;">Don't forget to signal when you're done</div></div></div>`;
                     } else if (userStatus.status === 'queued') {
                         const isNextInLine = userStatus.position === 1;
-                        html += `<div class="alert ${isNextInLine ? 'alert-warning' : 'alert-info'}"><span style="font-size: 24px;">${isNextInLine ? '⏰' : '⏳'}</span><div><strong>${isNextInLine ? 'You are next in line!' : `Position ${userStatus.position} in queue`}</strong><div style="font-size: 14px; margin-top: 4px;">${userStatus.preference === 'both' ? 'Waiting for any site' : `Waiting for ${userStatus.preference} only`}</div></div></div>`;
+                        html += `<div class="alert ${isNextInLine ? 'alert-warning' : 'alert-info'}"><span style="font-size: 24px;">${isNextInLine ? '⏰' : '⏳'}</span><div><strong>${isNextInLine ? 'You are next in line!' : `Position ${userStatus.position} in queue`}</strong><div style="font-size: 14px; margin-top: 4px;">${userStatus.preference === 'both' ? 'Waiting for any site' : `Waiting for ${userStatus.preference} only`}</div>`;
+                        
+                        if (isNextInLine) {
+                            html += `<div class="snooze-notice">⏰ You'll receive a reminder in 15 minutes if you don't plug in</div>`;
+                        }
+                        
+                        html += `</div></div>`;
                     }
 
-                    html += `<div class="card"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;"><div><span style="color: #6b7280; font-size: 14px;">Logged in as</span><div style="margin-top: 8px;"><span class="trigram-display">${this.state.userTrigram}</span><span class="discord-display">Discord ID: ${this.state.userDiscord}</span></div></div><button class="btn btn-small" onclick="app.resetUser()" style="background: #9ca3af; color: white;">Change</button></div>`;
+                    html += `<div class="card"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;"><div><span style="color: #6b7280; font-size: 14px;">Logged in as</span><div style="margin-top: 8px;"><span class="xgram-display">${this.state.userXgram}</span></div></div><button class="btn btn-small" onclick="app.resetUser()" style="background: #9ca3af; color: white;">Change</button></div>`;
 
                     ['LLN1', 'LLN2'].forEach(site => {
                         const siteData = this.state.sites[site];
@@ -568,7 +692,7 @@
                         const isQueued = userStatus.status === 'queued';
                         const isFull = available === 0;
 
-                        html += `<div class="site-section"><h3><span>📍</span><span>${site}</span></h3><div class="station-info"><div class="station-status"><span class="status-dot ${available > 0 ? '' : 'busy'}"></span><span>${available > 0 ? `${available} spot(s) available` : 'Full'}</span></div><span style="color: #6b7280; font-size: 14px;">${siteData.charging.length}/${MAX_SPOTS[site]}</span></div><div class="action-buttons">`;
+                        html += `<div class="site-section site-${site.toLowerCase()}"><h3><span>📍</span><span>${site}</span></h3><div class="station-info"><div class="station-status"><span class="status-dot ${available > 0 ? '' : 'busy'}"></span><span>${available > 0 ? `${available} spot(s) available` : 'Full'}</span></div><span style="color: #6b7280; font-size: 14px;">${siteData.charging.length}/${MAX_SPOTS[site]}</span></div><div class="action-buttons">`;
                         
                         if (!isCharging && userStatus.status !== 'charging' && !isQueued) {
                             html += `<button class="btn btn-primary" onclick="app.startCharging('${site}')">🔌 I'm plugging in</button>`;
@@ -577,7 +701,7 @@
                             html += `<button class="btn btn-danger" onclick="app.finishCharging('${site}')">✅ I'm done charging</button>`;
                         }
                         if (isFull && !isCharging && userStatus.status !== 'charging') {
-                            html += `<button class="btn btn-small" onclick="app.reportSpotFree('${site}')" style="background: #f59e0b; color: white;">📢 Report spot free</button>`;
+                            html += `<button class="btn btn-small btn-warning" onclick="app.reportSpotFree('${site}')">📢 Report spot free</button>`;
                         }
                         html += `</div></div>`;
                     });
@@ -587,7 +711,19 @@
                     if (this.state.globalQueue.length > 0) {
                         html += `<div class="queue-section"><h4>People waiting (${this.state.globalQueue.length})</h4><ul class="queue-list">`;
                         this.state.globalQueue.forEach((item, index) => {
-                            html += `<li class="queue-item ${item.trigram === this.state.userTrigram && index === 0 ? 'my-turn' : ''}"><div class="queue-position"><span class="position-number">${index + 1}</span><span class="queue-trigram">${item.trigram}${item.preference !== 'both' ? `<span class="queue-site">(${item.preference} only)</span>` : ''}</span></div>${item.trigram === this.state.userTrigram && index === 0 ? `<button class="btn btn-small btn-danger" onclick="app.reportNoSpot()" style="margin-left: 8px;">⚠️ No spot available</button>` : ''}</li>`;
+                            const isMe = item.xgram === this.state.userXgram;
+                            const isFirst = index === 0;
+                            html += `<li class="queue-item ${isMe && isFirst ? 'my-turn' : ''}">
+                                <div class="queue-position">
+                                    <span class="position-number">${index + 1}</span>
+                                    <span class="queue-xgram">${item.xgram}${item.preference !== 'both' ? `<span class="queue-site">(${item.preference} only)</span>` : ''}</span>
+                                </div>`;
+                            
+                            if (isMe && isFirst) {
+                                html += `<button class="btn btn-small btn-warning" onclick="app.snoozeMyTurn()">😴 Snooze my turn</button>`;
+                            }
+                            
+                            html += `</li>`;
                         });
                         html += `</ul></div>`;
                     } else {
