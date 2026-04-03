@@ -514,9 +514,23 @@
                     return;
                 }
                 
+                // Vérifier s'il y a des gens en queue pour ce site
+                const userStatus = this.getUserStatus();
+                const peopleWaitingForThisSite = this.state.globalQueue.filter(item => 
+                    item.preference === 'both' || item.preference === site
+                );
+                
+                // Si des gens attendent ET que je ne suis pas dans la queue
+                if (peopleWaitingForThisSite.length > 0 && userStatus.status !== 'queued') {
+                    const confirmMessage = `⚠️ There are ${peopleWaitingForThisSite.length} person(s) waiting in the queue for ${site}.\n\nAre you sure you want to skip the queue and plug anyway?`;
+                    
+                    if (!confirm(confirmMessage)) {
+                        return;
+                    }
+                }
+                
                 // Si le site semble Full, demander confirmation
                 if (siteData.charging.length >= MAX_SPOTS[site]) {
-                    const userStatus = this.getUserStatus();
                     const isFirstInQueue = userStatus.status === 'queued' && userStatus.position === 1;
                     
                     let confirmMessage = `${site} appears to be Full (${siteData.charging.length}/${MAX_SPOTS[site]}).\n\n`;
