@@ -237,7 +237,7 @@
         const DISCORD_WEBHOOK = "https://discord.com/api/webhooks/1489533546434531451/id6181aUtcNJeM4Aj9tXrEsyW0ySpW0HMGCWZb4P2ubxy2rLfY40AJZTDddXO-oNeN6J";
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
-        const MAX_SPOTS = { 'LLN1': 1, 'LLN2': 13 };
+        const MAX_SPOTS = { 'LLN1': 1, 'LLN2': 4 };
         const REMINDER_DELAY = 15 * 60 * 1000; // 15 minutes
 
         class EVChargingApp {
@@ -473,10 +473,19 @@
                     alert('You are already charging at another site');
                     return;
                 }
-                if (siteData.charging.length >= MAX_SPOTS[site]) {
+                
+                const userStatus = this.getUserStatus();
+                const isFirstInQueue = userStatus.status === 'queued' && userStatus.position === 1;
+                const matchesPreference = userStatus.status === 'queued' && (userStatus.preference === 'both' || userStatus.preference === site);
+                
+                // Autoriser si : 
+                // - Place disponible OU
+                // - Premier dans la queue ET préférence correspond
+                if (siteData.charging.length >= MAX_SPOTS[site] && !(isFirstInQueue && matchesPreference)) {
                     alert('No charging spot available. Use "Join Queue" to wait.');
                     return;
                 }
+                
                 siteData.charging.push(this.state.userXgram);
                 this.state.globalQueue = this.state.globalQueue.filter(item => item.xgram !== this.state.userXgram);
                 
@@ -506,8 +515,9 @@
                     if (nextPerson) {
                         await this.sendDiscordNotification(
                             nextPerson.xgram,
-                            `🔌 **Spot reported free!** Someone reported a free spot at **${site}**`
+                            `🔌 **Spot reported free!** Someone reported a free spot at **${site}**. Please go plug in and click "I'm plugging in" in the app!`
                         );
+                        
                         alert(`${nextPerson.xgram} has been notified via Discord`);
                     } else {
                         alert(`No one is waiting for ${site} at the moment.`);
