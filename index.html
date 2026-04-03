@@ -27,6 +27,20 @@
             gap: 10px;
         }
         .header p { opacity: 0.9; font-size: 14px; }
+        .header a {
+            display: inline-block;
+            margin-top: 8px;
+            color: white;
+            text-decoration: none;
+            font-size: 14px;
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            transition: background 0.2s;
+        }
+        .header a:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
         .card {
             background: white;
             border-radius: 16px;
@@ -217,6 +231,7 @@
         <div class="header">
             <h1><span>⚡</span><span>EV Charging Queue</span></h1>
             <p>Queue management for LLN 1 & LLN 2</p>
+            <a href="https://discord.com/channels/1489533353702068244/1489533353702068247" target="_blank">💬 View Discord Channel</a>
         </div>
         <div id="app"><div class="loading">Loading...</div></div>
     </div>
@@ -474,18 +489,7 @@
                     return;
                 }
                 
-                const userStatus = this.getUserStatus();
-                const isFirstInQueue = userStatus.status === 'queued' && userStatus.position === 1;
-                const matchesPreference = userStatus.status === 'queued' && (userStatus.preference === 'both' || userStatus.preference === site);
-                
-                // Autoriser si : 
-                // - Place disponible OU
-                // - Premier dans la queue ET préférence correspond
-                if (siteData.charging.length >= MAX_SPOTS[site] && !(isFirstInQueue && matchesPreference)) {
-                    alert('No charging spot available. Use "Join Queue" to wait.');
-                    return;
-                }
-                
+                // Toujours autoriser - l'utilisateur sur place sait mieux que le système
                 siteData.charging.push(this.state.userXgram);
                 this.state.globalQueue = this.state.globalQueue.filter(item => item.xgram !== this.state.userXgram);
                 
@@ -526,49 +530,55 @@
             }
 
             async snoozeMyTurn() {
-                if (!confirm('Are you sure you want to snooze your turn? The next person will be notified.')) {
+                if (!confirm('Are you sure you want to snooze your turn? You will move to position 2 and the next person will be notified.')) {
                     return;
                 }
                 
                 // Trouver mon index dans la queue
                 const myIndex = this.state.globalQueue.findIndex(item => item.xgram === this.state.userXgram);
-                if (myIndex !== -1) {
-                    // Me retirer de la queue
-                    const myItem = this.state.globalQueue.splice(myIndex, 1)[0];
+                if (myIndex === 0 && this.state.globalQueue.length > 1) {
+                    // Je suis premier - échanger avec la personne en position 2
+                    const myItem = this.state.globalQueue[0];
+                    this.state.globalQueue[0] = this.state.globalQueue[1];
+                    this.state.globalQueue[1] = myItem;
                     
-                    // Me remettre à la fin
-                    this.state.globalQueue.push(myItem);
-                    
-                    // Notifier la personne suivante
-                    if (this.state.globalQueue.length > 0) {
-                        const nextPerson = this.state.globalQueue[0];
-                        const availableSites = [];
-                        
-                        if (nextPerson.preference === 'both' || nextPerson.preference === 'LLN1') {
-                            if (MAX_SPOTS['LLN1'] - this.state.sites['LLN1'].charging.length > 0) {
-                                availableSites.push('LLN1');
-                            }
-                        }
-                        if (nextPerson.preference === 'both' || nextPerson.preference === 'LLN2') {
-                            if (MAX_SPOTS['LLN2'] - this.state.sites['LLN2'].charging.length > 0) {
-                                availableSites.push('LLN2');
-                            }
-                        }
-                        
-                        if (availableSites.length > 0) {
-                            await this.sendDiscordNotification(
-                                nextPerson.xgram,
-                                `🔌 **Your turn!** A spot is available at **${availableSites.join(' or ')}**`
-                            );
-                        }
-                    }
-                    
-                    // Effacer le timestamp de notification
+                    // Effacer mon timestamp de notification
                     delete this.state.notificationTimestamps[this.state.userXgram];
                     localStorage.setItem('notificationTimestamps', JSON.stringify(this.state.notificationTimestamps));
                     
                     await this.saveState();
-                    alert('Your turn has been snoozed. You are now at the end of the queue.');
+                    
+                    // Notifier la nouvelle personne en position 1
+                    const nextPerson = this.state.globalQueue[0];
+                    const availableSites = [];
+                    
+                    // Vérifier quels sites ont des places disponibles
+                    if (nextPerson.preference === 'both' || nextPerson.preference === 'LLN1') {
+                        const lln1Available = MAX_SPOTS['LLN1'] - this.state.sites['LLN1'].charging.length;
+                        if (lln1Available > 0) {
+                            availableSites.push('LLN1');
+                        }
+                    }
+                    if (nextPerson.preference === 'both' || nextPerson.preference === 'LLN2') {
+                        const lln2Available = MAX_SPOTS['LLN2'] - this.state.sites['LLN2'].charging.length;
+                        if (lln2Available > 0) {
+                            availableSites.push('LLN2');
+                        }
+                    }
+                    
+                    // Toujours notifier, même si aucune place n'est marquée comme disponible
+                    const siteMessage = availableSites.length > 0 
+                        ? `at **${availableSites.join(' or ')}**`
+                        : `(check **${nextPerson.preference === 'both' ? 'both sites' : nextPerson.preference}** - someone may have left without signaling)`;
+                    
+                    await this.sendDiscordNotification(
+                        nextPerson.xgram,
+                        `🔌 **Your turn!** A spot may be available ${siteMessage}`
+                    );
+                    
+                    alert('Your turn has been snoozed. You are now in position 2.');
+                } else if (myIndex === 0 && this.state.globalQueue.length === 1) {
+                    alert('You are the only person in the queue. Cannot snooze.');
                 }
             }
 
@@ -695,6 +705,7 @@
 
                         html += `<div class="site-section site-${site.toLowerCase()}"><h3><span>📍</span><span>${site}</span></h3><div class="station-info"><div class="station-status"><span class="status-dot ${available > 0 ? '' : 'busy'}"></span><span>${available > 0 ? `${available} spot(s) available` : 'Full'}</span></div><span style="color: #6b7280; font-size: 14px;">${siteData.charging.length}/${MAX_SPOTS[site]}</span></div><div class="action-buttons">`;
                         
+                        // Toujours afficher "I'm plugging in" si pas en train de charger ailleurs
                         if (!isCharging && userStatus.status !== 'charging' && !isQueued) {
                             html += `<button class="btn btn-primary" onclick="app.startCharging('${site}')">🔌 I'm plugging in</button>`;
                         }
