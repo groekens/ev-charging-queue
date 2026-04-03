@@ -365,7 +365,12 @@
                 if (!this.state.userDiscord) {
                     const discord = document.getElementById('discord-input').value.trim();
                     if (!discord) {
-                        alert('Please enter your Discord username');
+                        alert('Please enter your Discord ID');
+                        return;
+                    }
+                    // Vérifier que c'est un nombre (ID Discord)
+                    if (!/^\d+$/.test(discord)) {
+                        alert('Discord ID must be a number. Right-click your name in Discord → Copy ID');
                         return;
                     }
                     this.state.userDiscord = discord;
@@ -389,17 +394,17 @@
                     const docSnap = await getDoc(userDocRef);
                     
                     if (!docSnap.exists() || !docSnap.data().discord) {
-                        console.error('No Discord username found for', trigram);
+                        console.error('No Discord ID found for', trigram);
                         return;
                     }
                     
-                    const discord = docSnap.data().discord;
+                    const discordId = docSnap.data().discord;
                     
                     await fetch(DISCORD_WEBHOOK, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            content: `@${discord} ${message}`
+                            content: `<@${discordId}> ${message}`
                         })
                     });
                 } catch (error) {
@@ -468,7 +473,7 @@
                 }
                 
                 if (!this.state.userDiscord) {
-                    alert('Please set up your Discord username first (click Change)');
+                    alert('Please set up your Discord ID first (click Change)');
                     return;
                 }
                 
@@ -532,9 +537,9 @@
                     
                     if (!this.state.userDiscord) {
                         html += `<div class="input-section">
-                            <label for="discord-input">Your Discord username:</label>
-                            <input type="text" id="discord-input" placeholder="e.g., gabriel_roekens" autocomplete="off"/>
-                            <small>You'll receive notifications via Discord mention</small>
+                            <label for="discord-input">Your Discord ID:</label>
+                            <input type="text" id="discord-input" placeholder="e.g., 687682421847883779" autocomplete="off"/>
+                            <small>💡 How to find it: Discord Settings → Advanced → Developer Mode ON → Right-click your name → Copy ID</small>
                         </div>`;
                     }
                     
@@ -544,7 +549,7 @@
                 } else {
                     html += `<div class="notification-status">
                         <span>💬</span>
-                        <span>Discord notifications enabled for @${this.state.userDiscord}</span>
+                        <span>Discord notifications enabled (ID: ${this.state.userDiscord})</span>
                     </div>`;
 
                     if (userStatus.status === 'charging') {
@@ -554,7 +559,7 @@
                         html += `<div class="alert ${isNextInLine ? 'alert-warning' : 'alert-info'}"><span style="font-size: 24px;">${isNextInLine ? '⏰' : '⏳'}</span><div><strong>${isNextInLine ? 'You are next in line!' : `Position ${userStatus.position} in queue`}</strong><div style="font-size: 14px; margin-top: 4px;">${userStatus.preference === 'both' ? 'Waiting for any site' : `Waiting for ${userStatus.preference} only`}</div></div></div>`;
                     }
 
-                    html += `<div class="card"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;"><div><span style="color: #6b7280; font-size: 14px;">Logged in as</span><div style="margin-top: 8px;"><span class="trigram-display">${this.state.userTrigram}</span><span class="discord-display">@${this.state.userDiscord}</span></div></div><button class="btn btn-small" onclick="app.resetUser()" style="background: #9ca3af; color: white;">Change</button></div>`;
+                    html += `<div class="card"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;"><div><span style="color: #6b7280; font-size: 14px;">Logged in as</span><div style="margin-top: 8px;"><span class="trigram-display">${this.state.userTrigram}</span><span class="discord-display">Discord ID: ${this.state.userDiscord}</span></div></div><button class="btn btn-small" onclick="app.resetUser()" style="background: #9ca3af; color: white;">Change</button></div>`;
 
                     ['LLN1', 'LLN2'].forEach(site => {
                         const siteData = this.state.sites[site];
