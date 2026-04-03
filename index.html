@@ -705,8 +705,8 @@
 
                         html += `<div class="site-section site-${site.toLowerCase()}"><h3><span>📍</span><span>${site}</span></h3><div class="station-info"><div class="station-status"><span class="status-dot ${available > 0 ? '' : 'busy'}"></span><span>${available > 0 ? `${available} spot(s) available` : 'Full'}</span></div><span style="color: #6b7280; font-size: 14px;">${siteData.charging.length}/${MAX_SPOTS[site]}</span></div><div class="action-buttons">`;
                         
-                        // Toujours afficher "I'm plugging in" si pas en train de charger ailleurs
-                        if (!isCharging && userStatus.status !== 'charging' && !isQueued) {
+                        // Afficher "I'm plugging in" si pas déjà en train de charger (ailleurs)
+                        if (!isCharging && userStatus.status !== 'charging') {
                             html += `<button class="btn btn-primary" onclick="app.startCharging('${site}')">🔌 I'm plugging in</button>`;
                         }
                         if (isCharging) {
