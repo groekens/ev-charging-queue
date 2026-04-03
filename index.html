@@ -425,13 +425,9 @@
             async setUserDiscord() {
                 const discord = document.getElementById('discord-input').value.trim();
                 
-                if (!discord) {
-                    alert('Please enter your Discord ID or username');
-                    return;
-                }
-                
-                this.state.userDiscord = discord;
-                await this.saveUserDiscord(this.state.userXgram, discord);
+                // Si vide, utiliser le Xgram comme fallback
+                this.state.userDiscord = discord || this.state.userXgram;
+                await this.saveUserDiscord(this.state.userXgram, this.state.userDiscord);
                 this.render();
             }
 
@@ -572,11 +568,6 @@
                     return;
                 }
                 
-                if (!this.state.userDiscord) {
-                    alert('Please set up your Discord ID first (click Change)');
-                    return;
-                }
-                
                 const alreadyInQueue = this.state.globalQueue.some(item => item.xgram === this.state.userXgram);
                 if (alreadyInQueue) {
                     alert('You are already in the queue');
@@ -655,15 +646,15 @@
                             </div>
                         </div>
                         <div class="input-section">
-                            <label for="discord-input">Your Discord ID (recommended) or username:</label>
-                            <input type="text" id="discord-input" placeholder="e.g., 687682421847883779" autocomplete="off"/>
-                            <small>💡 To get your Discord ID: 
-                                <a href="https://support.discord.com/hc/en-us/articles/206346498-Where-can-I-find-my-User-Server-Message-ID" target="_blank" class="help-link">Follow this guide →</a>
+                            <label for="discord-input">Your Discord ID or username (optional):</label>
+                            <input type="text" id="discord-input" placeholder="e.g., 687682421847883779 or gabrielgro" autocomplete="off"/>
+                            <small>💡 <strong>Recommended:</strong> Enter your Discord ID to receive @mentions. 
+                                <a href="https://support.discord.com/hc/en-us/articles/206346498-Where-can-I-find-my-User-Server-Message-ID" target="_blank" class="help-link">How to find it →</a>
                             </small>
-                            <small style="margin-top: 8px;">Or just enter your Discord username (e.g., gabrielgro) - but you won't receive @mentions</small>
+                            <small style="margin-top: 8px;">⚠️ If you skip this, notifications will just mention your Xgram (${this.state.userXgram}) without @tagging you</small>
                         </div>
                         <div style="margin-top: 12px; display: flex; gap: 12px;">
-                            <button class="btn btn-primary" onclick="app.setUserDiscord()">Confirm</button>
+                            <button class="btn btn-primary" onclick="app.setUserDiscord()">Continue</button>
                             <button class="btn btn-small" onclick="app.resetUser()" style="background: #9ca3af; color: white;">Back</button>
                         </div>
                     </div>`;
