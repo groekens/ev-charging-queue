@@ -660,23 +660,10 @@
                     alert('You are already in the queue');
                     return;
                 }
-                if (preference === 'both') {
-                    const lln1Available = MAX_SPOTS['LLN1'] - this.state.sites['LLN1'].charging.length;
-                    const lln2Available = MAX_SPOTS['LLN2'] - this.state.sites['LLN2'].charging.length;
-                    if (lln1Available > 0 || lln2Available > 0) {
-                        const availableSites = [];
-                        if (lln1Available > 0) availableSites.push('LLN1');
-                        if (lln2Available > 0) availableSites.push('LLN2');
-                        alert(`⚠️ There are spots available at ${availableSites.join(' and ')}! Please use "I'm plugging in" instead of joining the queue.`);
-                        return;
-                    }
-                } else {
-                    const available = MAX_SPOTS[preference] - this.state.sites[preference].charging.length;
-                    if (available > 0) {
-                        alert(`⚠️ There are ${available} spot(s) available at ${preference}! Please use "I'm plugging in" instead of joining the queue.`);
-                        return;
-                    }
-                }
+                
+                // Note: On permet de rejoindre la queue même si des places semblent disponibles
+                // car ces places peuvent être "réservées" pour quelqu'un qui a été notifié
+                
                 const timestamp = Date.now();
                 this.state.globalQueue.push({ xgram: this.state.userXgram, timestamp, preference });
                 await this.saveState();
