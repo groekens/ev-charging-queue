@@ -702,7 +702,7 @@
                     html += `<div class="card">
                         <div class="input-section">
                             <label for="xgram-input">Your Xgram (trigram, quadrigram, etc.):</label>
-                            <input type="text" id="xgram-input" class="xgram" placeholder="e.g., GRO, ABCD" maxlength="10" autocomplete="off"/>
+                            <input type="text" id="xgram-input" class="xgram" placeholder="e.g., GRO, ABCD" maxlength="10" autocomplete="off" onkeypress="if(event.key==='Enter') app.setUserXgram()"/>
                             <small>Enter your unique identifier</small>
                         </div>
                         <div style="margin-top: 12px;">
@@ -721,9 +721,9 @@
                         </div>
                         <div class="input-section">
                             <label for="discord-input">Your Discord ID or username (optional):</label>
-                            <input type="text" id="discord-input" placeholder="e.g., 687682421847883779 or gabrielgro" autocomplete="off"/>
+                            <input type="text" id="discord-input" placeholder="e.g., 687682421847883779 or gabrielgro" autocomplete="off" onkeypress="if(event.key==='Enter') app.setUserDiscord()"/>
                             <small>💡 <strong>Recommended:</strong> Enter your Discord ID to receive @mentions. 
-                                <a href="https://support.discord.com/hc/en-us/articles/206346498-Where-can-I-find-my-User-Server-Message-ID" target="_blank" class="help-link">How to find it →</a>
+                                <a href="discord-id-guide.html" target="_blank" class="help-link">How to find it →</a>
                             </small>
                             <small style="margin-top: 8px;">⚠️ If you skip this, notifications will just mention your Xgram (${this.state.userXgram}) without @tagging you</small>
                         </div>
