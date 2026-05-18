@@ -1,7 +1,7 @@
 {
   "name": "EV Charging Queue",
   "short_name": "EV Queue",
-  "description": "Queue management for LLN 1 & LLN 2 charging stations",
+  "description": "Queue management for EV charging stations",
   "start_url": "/ev-charging-queue/",
   "display": "standalone",
   "background_color": "#667eea",
@@ -9,19 +9,19 @@
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "eclair.png",
+      "src": "images/eclair.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "eclair.png",
+      "src": "images/eclair.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "eclair.png",
+      "src": "images/eclair.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
