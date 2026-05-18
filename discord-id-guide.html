@@ -6,8 +6,8 @@
     <title>How to Find Your Discord ID - EV Charging Queue</title>
     
     <!-- Favicon -->
-    <link rel="icon" type="image/png" href="eclair.png">
-    <link rel="shortcut icon" type="image/png" href="eclair.png">
+    <link rel="icon" type="image/png" href="images/eclair.png">
+    <link rel="shortcut icon" type="image/png" href="images/eclair.png">
     
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -19,11 +19,7 @@
             color: #1f2937;
         }
         .container { max-width: 800px; margin: 0 auto; }
-        .header {
-            text-align: center;
-            color: white;
-            margin-bottom: 30px;
-        }
+        .header { text-align: center; color: white; margin-bottom: 30px; }
         .header h1 { font-size: 32px; margin-bottom: 10px; }
         .header p { opacity: 0.9; font-size: 16px; }
         .card {
@@ -38,7 +34,7 @@
             padding-bottom: 32px;
             border-bottom: 2px solid #e5e7eb;
         }
-        .step:last-child { border-bottom: none; }
+        .step:last-child { border-bottom: none; padding-bottom: 0; }
         .step-number {
             display: inline-block;
             background: #667eea;
@@ -68,14 +64,6 @@
             border: 2px solid #e5e7eb;
             margin-top: 16px;
         }
-        .note {
-            background: #dbeafe;
-            border-left: 4px solid #3b82f6;
-            padding: 16px;
-            border-radius: 8px;
-            margin-top: 16px;
-        }
-        .note strong { color: #1e40af; }
         .warning {
             background: #fef3c7;
             border-left: 4px solid #f59e0b;
@@ -84,6 +72,14 @@
             margin-top: 16px;
         }
         .warning strong { color: #92400e; }
+        .note {
+            background: #dbeafe;
+            border-left: 4px solid #3b82f6;
+            padding: 16px;
+            border-radius: 8px;
+            margin-top: 16px;
+        }
+        .note strong { color: #1e40af; }
         .btn {
             display: inline-block;
             background: #667eea;
@@ -122,24 +118,17 @@
 
             <div class="step">
                 <span class="step-number">2</span>
-                <h2>Go to Advanced Settings</h2>
-                <p>In the settings menu on the left, scroll down and click <strong>"Advanced"</strong>.</p>
-                <img src="images/discord-step2.png" alt="Discord advanced settings">
+                <h2>Enable Developer Mode in Advanced Settings</h2>
+                <p>In the settings menu on the left, scroll down and click <strong>"Advanced"</strong>, then toggle <strong>"Developer Mode"</strong> to ON (it will turn blue).</p>
+                <img src="images/discord-step2.png" alt="Discord advanced settings and developer mode">
             </div>
 
             <div class="step">
                 <span class="step-number">3</span>
-                <h2>Enable Developer Mode</h2>
-                <p>Toggle <strong>"Developer Mode"</strong> to ON (it will turn blue).</p>
-                <img src="images/discord-step2.png" alt="Discord developer mode">
-            </div>
-
-            <div class="step">
-                <span class="step-number">4</span>
                 <h2>Copy Your User ID</h2>
                 <p>Close settings, then <strong>click on your profile picture</strong> (bottom left) and select <strong>"Copy User ID"</strong>.</p>
                 <img src="images/discord-step3.png" alt="Discord copy user ID">
-                <p>Your Discord ID will look something like: <code>687682421847883779</code></p>
+                <p>Your Discord ID will look something like: <code>123456789012345678</code></p>
             </div>
 
             <div class="warning">
@@ -147,7 +136,7 @@
             </div>
 
             <div class="step">
-                <span class="step-number">5</span>
+                <span class="step-number">4</span>
                 <h2>Paste It in the App</h2>
                 <p>Go back to the EV Charging Queue app and paste your Discord ID in the "Discord ID" field.</p>
                 <p>That's it! You'll now receive @mentions in Discord when it's your turn to charge. 🎉</p>
@@ -155,7 +144,7 @@
 
             <div class="note">
                 <strong>💬 Why do we need this?</strong><br>
-                Your Discord ID allows the app to send you proper @mentions, which trigger push notifications on your phone. Without it, you'll just see your Xgram in messages (like "@GRO") but won't get notified.
+                Your Discord ID allows the app to send you proper @mentions, which trigger push notifications on your phone. Without it, you'll just see your Xgram in messages (like "@ABC") but won't get notified.
             </div>
 
             <a href="https://groekens.github.io/ev-charging-queue/" class="btn">← Back to App</a>
