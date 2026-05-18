@@ -1,0 +1,71 @@
+rules_version = '2';
+
+// Firestore Security Rules pour EV Charging Queue
+// 
+// Stratégie: Pas d'authentification (outil interne) mais validation stricte
+// du schéma et limitation de la taille des documents
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ========================================
+    // État global (queue + sites)
+    // ========================================
+    match /state/current {
+      allow read: if true;
+      
+      allow write: if 
+        // Taille raisonnable du document
+        request.resource.data.size() < 50
+        // Champs autorisés uniquement
+        && request.resource.data.keys().hasOnly(['sites', 'globalQueue', 'lastReset', 'updatedAt'])
+        // updatedAt obligatoire
+        && request.resource.data.updatedAt is string
+        // sites validation
+        && (
+          !('sites' in request.resource.data) ||
+          (
+            request.resource.data.sites.keys().hasOnly(['LLN1', 'LLN2'])
+            && request.resource.data.sites.LLN1.charging is list
+            && request.resource.data.sites.LLN2.charging is list
+            && request.resource.data.sites.LLN1.charging.size() <= 10
+            && request.resource.data.sites.LLN2.charging.size() <= 10
+          )
+        )
+        // globalQueue validation
+        && (
+          !('globalQueue' in request.resource.data) ||
+          (
+            request.resource.data.globalQueue is list
+            && request.resource.data.globalQueue.size() <= 50
+          )
+        );
+    }
+    
+    // ========================================
+    // Utilisateurs (Discord IDs)
+    // ========================================
+    match /users/{xgram} {
+      allow read: if true;
+      
+      allow write: if 
+        // Xgram doit être 2-10 lettres majuscules
+        xgram.matches('^[A-Z]{2,10}$')
+        // Taille du document
+        && request.resource.data.size() < 10
+        // Champs autorisés
+        && request.resource.data.keys().hasOnly(['discord', 'updatedAt'])
+        // discord doit être un string
+        && request.resource.data.discord is string
+        // discord pas trop long
+        && request.resource.data.discord.size() <= 100;
+    }
+    
+    // ========================================
+    // Refuser tout le reste par défaut
+    // ========================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

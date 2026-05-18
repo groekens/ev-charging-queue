@@ -1,0 +1,18 @@
+{
+  "name": "ev-charging-queue",
+  "version": "2.0.0",
+  "description": "EV Charging Queue Management - Production Ready",
+  "type": "module",
+  "scripts": {
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:ui": "vitest --ui"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^1.0.0",
+    "@vitest/ui": "^1.0.0",
+    "jsdom": "^23.0.0",
+    "vitest": "^1.0.0"
+  }
+}
