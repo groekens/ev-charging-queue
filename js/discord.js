@@ -3,11 +3,11 @@
  * Gère l'envoi de notifications via le webhook Discord
  */
 
-import { CONFIG, DISCORD_WEBHOOK } from './config.js';
+import { CONFIG, DISCORD_WEBHOOK, DISCORD_ROLES } from './config.js';
 import { logger } from './logger.js';
 
 /**
- * Envoie une notification Discord
+ * Envoie une notification Discord à un utilisateur spécifique
  * @param {Object} options
  * @param {string} options.discordId - ID Discord de la personne à mentionner
  * @param {string} options.message - Message à afficher
@@ -21,7 +21,7 @@ export async function sendDiscordNotification({ discordId, message, type = 'noti
     }
     
     try {
-        const embed = buildEmbed(message, type);
+        const embed = buildUserEmbed(message, type);
         
         const response = await fetch(DISCORD_WEBHOOK, {
             method: 'POST',
@@ -46,12 +46,75 @@ export async function sendDiscordNotification({ discordId, message, type = 'noti
 }
 
 /**
- * Construit l'embed Discord selon le type
+ * Envoie un report d'issue aux Fleet Managers via mention de rôle
+ * @param {Object} options
+ * @param {string} options.site - Nom du site (LLN1, LLN2)
+ * @param {string} options.description - Description du problème
+ * @param {string} options.reporter - Xgram de l'utilisateur qui report
+ * @returns {Promise<boolean>}
+ */
+export async function reportIssueToFleet({ site, description, reporter }) {
+    if (!site || !description || !reporter) {
+        logger.error('Missing parameters for issue report');
+        return false;
+    }
+    
+    if (description.length < CONFIG.ISSUE_MIN_LENGTH) {
+        logger.error('Description too short');
+        return false;
+    }
+    
+    if (description.length > CONFIG.ISSUE_MAX_LENGTH) {
+        logger.error('Description too long');
+        return false;
+    }
+    
+    try {
+        const roleId = DISCORD_ROLES.FLEET_MANAGERS;
+        
+        const response = await fetch(DISCORD_WEBHOOK, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                content: `<@&${roleId}>`,
+                // IMPORTANT: allowed_mentions nécessaire pour que la mention de rôle ping
+                allowed_mentions: {
+                    roles: [roleId]
+                },
+                embeds: [{
+                    title: `⚠️ Issue reported at ${site}`,
+                    description: description,
+                    color: CONFIG.COLORS.ORANGE,
+                    fields: [
+                        { name: 'Reported by', value: reporter, inline: true },
+                        { name: 'Site', value: site, inline: true },
+                    ],
+                    footer: { text: 'EV Charging Queue' },
+                    timestamp: new Date().toISOString(),
+                }]
+            })
+        });
+        
+        if (!response.ok) {
+            logger.error('Discord API error on issue report:', response.status);
+            return false;
+        }
+        
+        logger.log('Issue reported to fleet managers:', { site, reporter });
+        return true;
+    } catch (error) {
+        logger.error('Error sending issue report:', error);
+        return false;
+    }
+}
+
+/**
+ * Construit l'embed Discord pour les notifications utilisateur
  * @param {string} message
  * @param {string} type
  * @returns {Object} Embed Discord
  */
-function buildEmbed(message, type) {
+function buildUserEmbed(message, type) {
     const baseEmbed = {
         description: `${message}\n\n👉 [Open the app](${CONFIG.APP_URL})`,
         timestamp: new Date().toISOString(),
