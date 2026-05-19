@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="description" content="EV Charging Queue Management">
-    <meta name="theme-color" content="#667eea">
+    <meta name="theme-color" content="#1F1F1F">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -21,6 +21,11 @@
     <link rel="apple-touch-icon" sizes="180x180" href="images/eclair.png">
     <link rel="apple-touch-icon" sizes="167x167" href="images/eclair.png">
     
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="css/styles.css">
 </head>
@@ -30,21 +35,40 @@
         ⚠️ You are offline. Some features may not work.
     </div>
 
-    <div class="container">
-        <header class="header">
-            <h1><span>⚡</span><span>EV Charging Queue</span><span>⚡</span></h1>
-            <a href="https://discord.com/channels/1489533353702068244/1489533353702068247" target="_blank" rel="noopener">
-                💬 View Discord Channel
-            </a>
-        </header>
-
-        <main id="app">
-            <div class="loading">
-                <div class="spinner"></div>
-                <p>Loading...</p>
-            </div>
-        </main>
+    <!-- PWA Install Banner -->
+    <div class="pwa-banner" id="pwa-banner">
+        <span class="pwa-banner-icon">📱</span>
+        <div class="pwa-banner-content">
+            <div class="pwa-banner-title">Install the app</div>
+            <div class="pwa-banner-text">Add to home screen for quick access</div>
+        </div>
+        <button class="pwa-banner-action" id="pwa-install-btn">Install</button>
+        <button class="pwa-banner-close" id="pwa-dismiss-btn" aria-label="Dismiss">×</button>
     </div>
+    
+    <!-- iOS-specific tooltip -->
+    <div class="pwa-ios-tooltip" id="pwa-ios-tooltip">
+        Tap <strong>⎙ Share</strong> then <strong>"Add to Home Screen"</strong>
+    </div>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <div class="hero-badge">Real-time Queue Management</div>
+            <h1>EV Charging <span class="accent">Queue</span></h1>
+            <p>Skip the wait. Get notified when it's your turn.</p>
+            <a href="https://discord.com/channels/1489533353702068244/1489533353702068247" target="_blank" rel="noopener" class="hero-link">
+                View Discord channel
+            </a>
+        </div>
+    </section>
+
+    <main class="container" id="app">
+        <div class="loading">
+            <div class="spinner"></div>
+            <p>Loading...</p>
+        </div>
+    </main>
 
     <!-- Toast container -->
     <div id="toast-container" class="toast-container"></div>
