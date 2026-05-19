@@ -352,7 +352,7 @@ export class EVChargingApp {
         
         const confirmed = await modal.confirm({
             title: `Report free spot at ${site}?`,
-            message: `The app shows ${site} as full, but you see a free spot?\n\nThis will mark the site as available and notify the next person in queue.`,
+            message: `The app shows ${site} as full, but you see a free spot?\n\nThis will mark the site as available and notify the next person in queue.\n\nNote: Your Xgram (${this.userXgram}) will be included in the notification.`,
             confirmText: 'Yes, report it',
             cancelText: 'Cancel',
             confirmStyle: 'accent',
@@ -365,14 +365,14 @@ export class EVChargingApp {
         try {
             const newState = reportFreeSpotInSite(this.state, site);
             
-            // Notifier la prochaine personne dans la queue
+            // Notifier la prochaine personne dans la queue avec le nom du reporter
             const nextPerson = findNextInQueue(site, newState);
             if (nextPerson) {
                 const discordId = await getDiscordId(nextPerson.xgram);
                 if (discordId) {
                     await sendDiscordNotification({
                         discordId,
-                        message: `🔌 **Free spot reported!** Someone reported a free spot at **${site}**. Please go plug in!`,
+                        message: `🔌 **Free spot reported by ${this.userXgram}!** A free spot is available at **${site}**. Please go plug in!`,
                     });
                     toast.success(`${nextPerson.xgram} has been notified`);
                 } else {
