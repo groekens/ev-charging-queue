@@ -3,7 +3,7 @@
  * Cache les assets statiques pour fonctionnement offline
  */
 
-const CACHE_NAME = 'ev-queue-v2';
+const CACHE_NAME = 'ev-queue-v3'; // Bump version pour forcer mise à jour
 const BASE_PATH = '/ev-charging-queue';
 
 const ASSETS_TO_CACHE = [
@@ -22,10 +22,11 @@ const ASSETS_TO_CACHE = [
     `${BASE_PATH}/js/firestore.js`,
     `${BASE_PATH}/js/queue.js`,
     `${BASE_PATH}/js/render.js`,
+    `${BASE_PATH}/js/reports.js`,
+    `${BASE_PATH}/js/pwa-install.js`,
     `${BASE_PATH}/images/eclair.png`,
 ];
 
-// Installation : mise en cache des assets
 self.addEventListener('install', (event) => {
     event.waitUntil(
         caches.open(CACHE_NAME)
@@ -37,7 +38,6 @@ self.addEventListener('install', (event) => {
     );
 });
 
-// Activation : nettoyer les anciens caches
 self.addEventListener('activate', (event) => {
     event.waitUntil(
         caches.keys().then(cacheNames => {
@@ -53,7 +53,6 @@ self.addEventListener('activate', (event) => {
     );
 });
 
-// Fetch : Stratégie Cache-first pour les assets, Network-first pour Firebase
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
     
@@ -62,20 +61,18 @@ self.addEventListener('fetch', (event) => {
         url.hostname.includes('firestore') ||
         url.hostname.includes('discord.com') ||
         url.hostname.includes('googleapis.com') ||
-        url.hostname.includes('gstatic.com')) {
-        return; // Laisser passer
+        url.hostname.includes('gstatic.com') ||
+        url.hostname.includes('fonts.googleapis.com') ||
+        url.hostname.includes('fonts.gstatic.com')) {
+        return;
     }
     
-    // Cache-first pour nos assets
     event.respondWith(
         caches.match(event.request)
             .then(cachedResponse => {
-                if (cachedResponse) {
-                    return cachedResponse;
-                }
+                if (cachedResponse) return cachedResponse;
                 
                 return fetch(event.request).then(response => {
-                    // Cacher la nouvelle réponse si valide
                     if (response && response.status === 200 && response.type === 'basic') {
                         const responseClone = response.clone();
                         caches.open(CACHE_NAME).then(cache => {
@@ -84,7 +81,6 @@ self.addEventListener('fetch', (event) => {
                     }
                     return response;
                 }).catch(() => {
-                    // Fallback offline
                     if (event.request.mode === 'navigate') {
                         return caches.match(`${BASE_PATH}/index.html`);
                     }
