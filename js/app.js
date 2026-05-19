@@ -16,7 +16,7 @@ import {
     getDiscordId,
     saveDiscordId,
 } from './firestore.js';
-import { sendDiscordNotification } from './discord.js';
+import { sendDiscordNotification, reportIssueToFleet } from './discord.js';
 import {
     getUserStatus,
     isSiteFull,
@@ -28,7 +28,14 @@ import {
     dailyResetState,
     shouldResetDaily,
 } from './queue.js';
+import {
+    validateIssueDescription,
+    checkReportCooldown,
+    recordReportTimestamp,
+    reportFreeSpotInSite,
+} from './reports.js';
 import { renderXgramLogin, renderDiscordLogin, renderMain } from './render.js';
+import { pwaInstaller } from './pwa-install.js';
 
 export class EVChargingApp {
     constructor() {
@@ -50,36 +57,30 @@ export class EVChargingApp {
     
     async init() {
         try {
-            // Charger l'état initial
             const data = await loadState();
             if (data) {
                 this.state = { ...this.state, ...data };
             }
             
-            // Charger le Discord ID si Xgram connu
             if (this.userXgram) {
                 this.userDiscord = await getDiscordId(this.userXgram) || '';
             }
             
-            // Vérifier le reset quotidien
             await this.checkDailyReset();
-            
-            // Démarrer les vérifications périodiques
             this.startPeriodicChecks();
             
-            // Subscribe aux changements
             this.unsubscribe = subscribeToState((data) => {
                 this.state = { ...this.state, ...data };
                 this.checkForMyTurn();
                 this.render();
             });
             
-            // Détection online/offline
             this.setupOfflineDetection();
             
-            // Render initial
-            this.render();
+            // Initialiser PWA installer
+            pwaInstaller.init();
             
+            this.render();
             logger.log('App initialized');
         } catch (error) {
             logger.error('Init error:', error);
@@ -112,10 +113,7 @@ export class EVChargingApp {
     }
     
     startPeriodicChecks() {
-        // Vérification du reset quotidien
         setInterval(() => this.checkDailyReset(), CONFIG.DAILY_CHECK_INTERVAL_MS);
-        
-        // Vérification des rappels
         setInterval(() => this.checkReminders(), CONFIG.REMINDER_CHECK_INTERVAL_MS);
     }
     
@@ -155,7 +153,6 @@ export class EVChargingApp {
         
         const userStatus = getUserStatus(this.userXgram, this.state);
         
-        // Si on devient premier dans la queue et pas encore notifié
         if (userStatus.status === 'queued' && userStatus.position === 1) {
             if (!this.notificationTimestamps[this.userXgram]) {
                 this.notificationTimestamps[this.userXgram] = Date.now();
@@ -213,6 +210,8 @@ export class EVChargingApp {
                         message: validation.error + '\n\nContinue anyway?',
                         confirmText: 'Yes, continue',
                         cancelText: 'Let me fix it',
+                        icon: '⚠️',
+                        iconStyle: 'warning',
                     });
                     if (!confirmed) return;
                 } else {
@@ -237,11 +236,53 @@ export class EVChargingApp {
         this.render();
     }
     
+    async openSettings() {
+        const currentDiscord = await getDiscordId(this.userXgram) || '';
+        
+        const newDiscord = await modal.promptText({
+            title: '⚙️ Settings',
+            subtitle: `Logged in as ${this.userXgram}`,
+            label: 'Your Discord ID:',
+            placeholder: '123456789012345678',
+            helper: '💡 Leave empty to disable @mentions. Update this anytime.',
+            confirmText: 'Save',
+            cancelText: 'Cancel',
+            confirmStyle: 'primary',
+            icon: '⚙️',
+            iconStyle: 'info',
+            initialValue: currentDiscord,
+            maxLength: 30,
+            multiline: false,
+        });
+        
+        if (newDiscord === null) return; // Cancelled
+        
+        // Si vide, supprimer
+        if (newDiscord === '') {
+            this.userDiscord = this.userXgram;
+            await saveDiscordId(this.userXgram, this.userXgram);
+            toast.success('Discord ID removed');
+            this.render();
+            return;
+        }
+        
+        // Sinon valider
+        const validation = validateDiscordId(newDiscord);
+        if (!validation.valid) {
+            toast.error(validation.error || 'Invalid Discord ID');
+            return;
+        }
+        
+        this.userDiscord = newDiscord;
+        await saveDiscordId(this.userXgram, newDiscord);
+        toast.success('Discord ID updated!');
+        this.render();
+    }
+    
     async startCharging(site) {
         const userStatus = getUserStatus(this.userXgram, this.state);
         const siteFull = isSiteFull(site, this.state);
         
-        // Si le site est plein, demander confirmation
         if (siteFull) {
             const isFirstInQueue = userStatus.status === 'queued' && userStatus.position === 1;
             const currentCharging = this.state.sites[site].charging.length;
@@ -261,13 +302,14 @@ export class EVChargingApp {
                 message,
                 confirmText: 'Yes, I\'m plugging in',
                 cancelText: 'Cancel',
-                confirmStyle: 'warning',
+                confirmStyle: 'accent',
+                icon: '🔌',
+                iconStyle: 'warning',
             });
             
             if (!confirmed) return;
         }
         
-        // Utiliser une transaction pour éviter race conditions
         const result = await startChargingTransaction(site, this.userXgram, true);
         
         if (!result.success) {
@@ -275,7 +317,6 @@ export class EVChargingApp {
             return;
         }
         
-        // Effacer le timestamp de notification
         delete this.notificationTimestamps[this.userXgram];
         this.saveNotificationTimestamps();
         
@@ -285,7 +326,6 @@ export class EVChargingApp {
     async finishCharging(site) {
         const newState = finishCharging(this.state, site, this.userXgram);
         
-        // Notifier la prochaine personne
         const nextPerson = findNextInQueue(site, newState);
         if (nextPerson) {
             const discordId = await getDiscordId(nextPerson.xgram);
@@ -302,30 +342,100 @@ export class EVChargingApp {
         toast.success(`Charging finished at ${site}`);
     }
     
-    async reportSpotFree(site) {
+    async reportFreeSpot(site) {
+        // Check cooldown
+        const cooldown = checkReportCooldown(this.userXgram);
+        if (!cooldown.allowed) {
+            toast.warning(`Please wait ${cooldown.retryAfter} minutes before reporting again`);
+            return;
+        }
+        
         const confirmed = await modal.confirm({
-            title: `Report free spot at ${site}`,
-            message: `Confirm: Is there really a free spot at ${site}?`,
+            title: `Report free spot at ${site}?`,
+            message: `The app shows ${site} as full, but you see a free spot?\n\nThis will mark the site as available and notify the next person in queue.`,
             confirmText: 'Yes, report it',
+            cancelText: 'Cancel',
+            confirmStyle: 'accent',
+            icon: '🟢',
+            iconStyle: 'success',
         });
         
         if (!confirmed) return;
         
-        const nextPerson = findNextInQueue(site, this.state);
-        if (!nextPerson) {
-            toast.info(`No one is waiting for ${site} at the moment.`);
+        try {
+            const newState = reportFreeSpotInSite(this.state, site);
+            
+            // Notifier la prochaine personne dans la queue
+            const nextPerson = findNextInQueue(site, newState);
+            if (nextPerson) {
+                const discordId = await getDiscordId(nextPerson.xgram);
+                if (discordId) {
+                    await sendDiscordNotification({
+                        discordId,
+                        message: `🔌 **Free spot reported!** Someone reported a free spot at **${site}**. Please go plug in!`,
+                    });
+                    toast.success(`${nextPerson.xgram} has been notified`);
+                } else {
+                    toast.success(`${site} marked as available (next person has no Discord ID)`);
+                }
+            } else {
+                toast.success(`${site} marked as available (no one waiting)`);
+            }
+            
+            this.state = newState;
+            await saveState(this.state);
+            recordReportTimestamp(this.userXgram);
+        } catch (error) {
+            logger.error('Report free spot error:', error);
+            toast.error(error.message);
+        }
+    }
+    
+    async reportIssue(site) {
+        // Check cooldown
+        const cooldown = checkReportCooldown(this.userXgram);
+        if (!cooldown.allowed) {
+            toast.warning(`Please wait ${cooldown.retryAfter} minutes before reporting again`);
             return;
         }
         
-        const discordId = await getDiscordId(nextPerson.xgram);
-        if (discordId) {
-            await sendDiscordNotification({
-                discordId,
-                message: `🔌 **Spot reported free!** Someone reported a free spot at **${site}**. Please go plug in and click "I'm plugging in" in the app!`,
-            });
-            toast.success(`${nextPerson.xgram} has been notified`);
+        const description = await modal.promptText({
+            title: 'Report an issue',
+            subtitle: `at ${site}`,
+            label: 'Describe the issue:',
+            placeholder: "e.g., The charging cable is damaged and won't connect properly...",
+            helper: '💬 Fleet managers will be notified on Discord with your message',
+            confirmText: '⚠️ Send report',
+            cancelText: 'Cancel',
+            confirmStyle: 'send',
+            icon: '⚠️',
+            iconStyle: 'warning',
+            minLength: CONFIG.ISSUE_MIN_LENGTH,
+            maxLength: CONFIG.ISSUE_MAX_LENGTH,
+            multiline: true,
+        });
+        
+        if (description === null) return; // Cancelled
+        
+        // Valider
+        const validation = validateIssueDescription(description);
+        if (!validation.valid) {
+            toast.error(validation.error);
+            return;
+        }
+        
+        // Envoyer à Discord
+        const success = await reportIssueToFleet({
+            site,
+            description: description.trim(),
+            reporter: this.userXgram,
+        });
+        
+        if (success) {
+            toast.success('Fleet managers have been notified');
+            recordReportTimestamp(this.userXgram);
         } else {
-            toast.warning(`${nextPerson.xgram} has no Discord ID`);
+            toast.error('Failed to send report. Please try again.');
         }
     }
     
@@ -347,6 +457,8 @@ export class EVChargingApp {
             message: 'Are you sure you want to leave the queue?',
             confirmText: 'Yes, leave',
             confirmStyle: 'danger',
+            icon: '❌',
+            iconStyle: 'danger',
         });
         
         if (!confirmed) return;
@@ -364,20 +476,19 @@ export class EVChargingApp {
             message: 'You will move to position 2 and the next person will be notified.',
             confirmText: 'Yes, snooze',
             confirmStyle: 'warning',
+            icon: '😴',
+            iconStyle: 'warning',
         });
         
         if (!confirmed) return;
         
         try {
-            const oldQueue = this.state.globalQueue;
             this.state = snoozeFirstInQueue(this.state, this.userXgram);
             
-            // Notifier la nouvelle personne en position 1
             const nextPerson = this.state.globalQueue[0];
             const discordId = await getDiscordId(nextPerson.xgram);
             
             if (discordId) {
-                // Vérifier les sites disponibles
                 const availableSites = [];
                 for (const site of CONFIG.SITES) {
                     if ((nextPerson.preference === 'both' || nextPerson.preference === site) 
@@ -473,11 +584,13 @@ export class EVChargingApp {
         switch (action) {
             case 'start-charging': this.startCharging(site); break;
             case 'finish-charging': this.finishCharging(site); break;
-            case 'report-spot-free': this.reportSpotFree(site); break;
+            case 'report-free-spot': this.reportFreeSpot(site); break;
+            case 'report-issue': this.reportIssue(site); break;
             case 'join-queue': this.joinQueue(); break;
             case 'leave-queue': this.leaveQueue(); break;
             case 'snooze': this.snoozeMyTurn(); break;
             case 'reset-user': this.resetUser(); break;
+            case 'open-settings': this.openSettings(); break;
             default: logger.warn('Unknown action:', action);
         }
     }
