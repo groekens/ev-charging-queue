@@ -21,12 +21,15 @@ export const CONFIG = {
     REMINDER_CHECK_INTERVAL_MS: 60 * 1000,     // 1 minute
     TOAST_DURATION_MS: 3000,                   // 3 secondes
     SAVE_DEBOUNCE_MS: 300,                     // 300ms
+    REPORT_COOLDOWN_MS: 30 * 60 * 1000,        // 30 minutes entre reports (anti-spam)
     
     // Validation
     XGRAM_REGEX: /^[A-Z]{2,10}$/,
     XGRAM_MIN_LENGTH: 2,
     XGRAM_MAX_LENGTH: 10,
     DISCORD_ID_REGEX: /^\d{17,19}$/,
+    ISSUE_MIN_LENGTH: 5,
+    ISSUE_MAX_LENGTH: 500,
     
     // Discord embed colors
     COLORS: {
@@ -34,6 +37,7 @@ export const CONFIG = {
         WARNING: 0xf59e0b,
         INFO: 0x3b82f6,
         DANGER: 0xef4444,
+        ORANGE: 0xff7a00,
     },
     
     // Mode debug (activé en local)
@@ -58,3 +62,10 @@ const WEBHOOK_ID = atob("MTQ4OTUzMzU0NjQzNDUzMTQ1MQ==");
 const WEBHOOK_TOKEN = atob("aWQ2MTgxYVV0Y05KZU00QWo5dFhyRXN5VzB5U3BXMEhNR0NXWmI0UDJ1Ynh5MnJMZlk0MEFKWlREZGRYTy1vTmVONko=");
 
 export const DISCORD_WEBHOOK = WEBHOOK_BASE + WEBHOOK_ID + "/" + WEBHOOK_TOKEN;
+
+// Discord Roles
+// Le rôle "Fleet Managers" sur le serveur Discord d'Odoo
+// Configurer le rôle: voir DISCORD_ROLES_SETUP.md
+export const DISCORD_ROLES = {
+    FLEET_MANAGERS: "1506006592309690409",
+};
