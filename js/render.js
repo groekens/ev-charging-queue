@@ -1,6 +1,6 @@
 /**
  * Module de rendu UI
- * Gère le rendu HTML de l'application
+ * Gère le rendu HTML de l'application style Odoo moderne
  */
 
 import { CONFIG } from './config.js';
@@ -9,7 +9,6 @@ import { getUserStatus, getAvailableSpots, isSiteFull } from './queue.js';
 
 /**
  * Rend l'écran de login (étape 1 - Xgram)
- * @returns {string} HTML
  */
 export function renderXgramLogin() {
     return `
@@ -20,7 +19,7 @@ export function renderXgramLogin() {
                     type="text" 
                     id="xgram-input" 
                     class="xgram" 
-                    placeholder="e.g., ABC, WXYZ" 
+                    placeholder="ABC" 
                     maxlength="${CONFIG.XGRAM_MAX_LENGTH}" 
                     autocomplete="off"
                     aria-label="Enter your Xgram"
@@ -28,7 +27,7 @@ export function renderXgramLogin() {
                 <small id="xgram-error"></small>
                 <small>Enter your unique identifier</small>
             </div>
-            <div style="margin-top: 12px;">
+            <div style="margin-top: 16px;">
                 <button class="btn btn-primary" id="xgram-submit">Continue</button>
             </div>
         </div>
@@ -37,14 +36,12 @@ export function renderXgramLogin() {
 
 /**
  * Rend l'écran de login (étape 2 - Discord)
- * @param {string} xgram - Xgram de l'utilisateur
- * @returns {string} HTML
  */
 export function renderDiscordLogin(xgram) {
     return `
         <div class="card">
             <div style="margin-bottom: 20px;">
-                <span style="color: var(--color-text-light); font-size: 14px;">Logged in as</span>
+                <span style="color: var(--text-secondary); font-size: 13px;">Logged in as</span>
                 <div style="margin-top: 8px;">
                     <span class="xgram-display">${escapeHtml(xgram)}</span>
                 </div>
@@ -54,7 +51,7 @@ export function renderDiscordLogin(xgram) {
                 <input 
                     type="text" 
                     id="discord-input" 
-                    placeholder="e.g., 123456789012345678" 
+                    placeholder="123456789012345678" 
                     autocomplete="off"
                     aria-label="Enter your Discord ID"
                 />
@@ -64,11 +61,11 @@ export function renderDiscordLogin(xgram) {
                     <a href="discord-id-guide.html" target="_blank" rel="noopener" class="help-link">How to find it →</a>
                 </small>
                 <small>⚠️ If you skip this, notifications will just mention your Xgram (${escapeHtml(xgram)}) without @tagging you</small>
-                <small style="color: var(--color-success);">ℹ️ You only need to do this once - it will be saved and linked to your Xgram</small>
+                <small style="color: var(--success);">ℹ️ You only need to do this once - it will be saved and linked to your Xgram</small>
             </div>
-            <div style="margin-top: 12px; display: flex; gap: 12px;">
-                <button class="btn btn-primary" id="discord-submit">Continue</button>
-                <button class="btn btn-small" id="discord-back" style="background: #9ca3af; color: white;">Back</button>
+            <div style="margin-top: 16px; display: flex; gap: 12px;">
+                <button class="btn btn-primary" id="discord-submit" style="flex: 1;">Continue</button>
+                <button class="btn btn-cancel" id="discord-back">Back</button>
             </div>
         </div>
     `;
@@ -76,19 +73,15 @@ export function renderDiscordLogin(xgram) {
 
 /**
  * Rend l'alerte de statut utilisateur
- * @param {Object} userStatus
- * @returns {string} HTML
  */
 export function renderUserStatusAlert(userStatus) {
     if (userStatus.status === 'charging') {
         return `
             <div class="alert alert-success">
-                <span style="font-size: 24px;">🔌</span>
-                <div>
-                    <strong>You are charging at ${escapeHtml(userStatus.site)}</strong>
-                    <div style="font-size: 14px; margin-top: 4px;">
-                        Don't forget to signal when you're done
-                    </div>
+                <span class="alert-icon">🔌</span>
+                <div class="alert-content">
+                    <div class="alert-title">You are charging at ${escapeHtml(userStatus.site)}</div>
+                    <div class="alert-message">Don't forget to signal when you're done</div>
                 </div>
             </div>
         `;
@@ -98,12 +91,10 @@ export function renderUserStatusAlert(userStatus) {
         const isNext = userStatus.position === 1;
         return `
             <div class="alert ${isNext ? 'alert-warning' : 'alert-info'}">
-                <span style="font-size: 24px;">${isNext ? '⏰' : '⏳'}</span>
-                <div>
-                    <strong>${isNext ? 'You are next in line!' : `Position ${userStatus.position} in queue`}</strong>
-                    <div style="font-size: 14px; margin-top: 4px;">
-                        ${userStatus.preference === 'both' ? 'Waiting for any site' : `Waiting for ${escapeHtml(userStatus.preference)} only`}
-                    </div>
+                <span class="alert-icon">${isNext ? '⏰' : '⏳'}</span>
+                <div class="alert-content">
+                    <div class="alert-title">${isNext ? 'You are next in line!' : `Position ${userStatus.position} in queue`}</div>
+                    <div class="alert-message">${userStatus.preference === 'both' ? 'Waiting for any site' : `Waiting for ${escapeHtml(userStatus.preference)} only`}</div>
                     ${isNext ? '<div class="snooze-notice">⏰ You\'ll receive a reminder in 15 minutes if you don\'t plug in</div>' : ''}
                 </div>
             </div>
@@ -114,89 +105,76 @@ export function renderUserStatusAlert(userStatus) {
 }
 
 /**
- * Rend un site (LLN1 ou LLN2)
- * @param {string} site
- * @param {Object} state
- * @param {Object} userStatus
- * @returns {string} HTML
+ * Rend une station card (LLN1 ou LLN2)
  */
-export function renderSite(site, state, userStatus) {
+export function renderStationCard(site, state, userStatus) {
     const available = getAvailableSpots(site, state);
     const isCharging = userStatus.status === 'charging' && userStatus.site === site;
     const isFull = isSiteFull(site, state);
     const chargingCount = state.sites?.[site]?.charging?.length || 0;
+    const total = CONFIG.MAX_SPOTS[site];
     
-    let buttons = '';
-    
-    if (!isCharging && userStatus.status !== 'charging') {
-        buttons += `<button class="btn btn-primary" data-action="start-charging" data-site="${site}">🔌 I'm plugging in</button>`;
-    }
+    let mainButton = '';
     
     if (isCharging) {
-        buttons += `<button class="btn btn-danger" data-action="finish-charging" data-site="${site}">✅ I'm done charging</button>`;
-    }
-    
-    if (isFull && !isCharging && userStatus.status !== 'charging') {
-        buttons += `<button class="btn btn-small btn-warning" data-action="report-spot-free" data-site="${site}">📢 Report spot free</button>`;
+        mainButton = `<button class="btn btn-danger" data-action="finish-charging" data-site="${site}">✅ I'm done charging</button>`;
+    } else if (userStatus.status !== 'charging') {
+        mainButton = `<button class="btn btn-accent" data-action="start-charging" data-site="${site}">⚡ I'm plugging in</button>`;
     }
     
     return `
-        <div class="site-section site-${site.toLowerCase()}">
-            <h3>
-                <span>📍</span>
-                <span>${escapeHtml(site)}</span>
-            </h3>
-            <div class="station-info">
-                <div class="station-status">
-                    <span class="status-dot ${available > 0 ? '' : 'busy'}"></span>
-                    <span>${available > 0 ? `${available} spot(s) available` : 'Full'}</span>
+        <div class="station-card station-${site.toLowerCase()}">
+            <div class="station-header">
+                <div class="station-name">
+                    <span class="station-badge"></span>
+                    <h3>${escapeHtml(site)}</h3>
                 </div>
-                <span style="color: var(--color-text-light); font-size: 14px;">
-                    ${chargingCount}/${CONFIG.MAX_SPOTS[site]}
-                </span>
+                <div class="station-availability">
+                    <div class="availability-count">${available}<span class="total">/${total}</span></div>
+                    <div class="availability-label ${available > 0 ? 'available' : 'full'}">
+                        ${available > 0 ? 'Available' : 'Full'}
+                    </div>
+                </div>
             </div>
-            <div class="action-buttons">${buttons}</div>
+            ${mainButton}
+            <div class="station-reports">
+                <button class="btn-report report-free" data-action="report-free-spot" data-site="${site}">
+                    🟢 Report free spot
+                </button>
+                <button class="btn-report report-issue" data-action="report-issue" data-site="${site}">
+                    ⚠️ Report issue
+                </button>
+            </div>
         </div>
     `;
 }
 
 /**
  * Rend la section queue
- * @param {Object} state
- * @param {Object} userStatus
- * @returns {string} HTML
  */
 export function renderQueueSection(state, userStatus) {
-    let html = `
-        <div class="site-section">
-            <h3>
-                <span>👥</span>
-                <span>Waiting Queue</span>
-            </h3>
-    `;
+    let html = `<div class="queue-card">`;
     
-    // Options pour rejoindre/quitter la queue (avant la liste pour mobile)
+    // Options pour rejoindre/quitter la queue
     if (userStatus.status === 'idle') {
         html += `
-            <div class="site-preference">
-                <label>Join the waiting queue:</label>
+            <div class="queue-options">
+                <div class="queue-options-label">Join the queue for:</div>
                 <div class="radio-group">
-                    <div class="radio-option">
+                    <div class="radio-option full-width">
                         <input type="radio" id="pref-both" name="site-pref" value="both" checked>
                         <label for="pref-both">Any site</label>
                     </div>
                     <div class="radio-option">
                         <input type="radio" id="pref-lln1" name="site-pref" value="LLN1">
-                        <label for="pref-lln1">LLN1 only</label>
+                        <label for="pref-lln1">LLN1</label>
                     </div>
                     <div class="radio-option">
                         <input type="radio" id="pref-lln2" name="site-pref" value="LLN2">
-                        <label for="pref-lln2">LLN2 only</label>
+                        <label for="pref-lln2">LLN2</label>
                     </div>
                 </div>
-                <div style="margin-top: 16px;">
-                    <button class="btn btn-secondary" data-action="join-queue">⏳ Join queue</button>
-                </div>
+                <button class="btn btn-join" data-action="join-queue">⏳ Join queue</button>
             </div>
         `;
     } else if (userStatus.status === 'queued') {
@@ -209,11 +187,7 @@ export function renderQueueSection(state, userStatus) {
     
     // Liste des personnes en attente
     if (state.globalQueue && state.globalQueue.length > 0) {
-        html += `
-            <div class="queue-section">
-                <h4>People waiting (${state.globalQueue.length})</h4>
-                <ul class="queue-list">
-        `;
+        html += `<ul class="queue-list">`;
         
         state.globalQueue.forEach((item, index) => {
             const isMe = item.xgram === userStatus.xgram;
@@ -228,17 +202,17 @@ export function renderQueueSection(state, userStatus) {
                         <span class="position-number">${index + 1}</span>
                         <span class="queue-xgram">${escapeHtml(item.xgram)}${siteLabel}</span>
                     </div>
-                    ${isMe && isFirst ? '<button class="btn btn-small btn-warning" data-action="snooze">😴 Snooze my turn</button>' : ''}
+                    ${isMe && isFirst ? '<button class="btn btn-small btn-warning" data-action="snooze">😴 Snooze</button>' : ''}
                 </li>
             `;
         });
         
-        html += `</ul></div>`;
+        html += `</ul>`;
     } else {
         html += `
-            <div class="empty-state">
-                <div class="empty-state-icon">✨</div>
-                <p>No one waiting</p>
+            <div class="empty-queue">
+                <div class="empty-queue-icon">✨</div>
+                <div>No one waiting</div>
             </div>
         `;
     }
@@ -249,37 +223,45 @@ export function renderQueueSection(state, userStatus) {
 
 /**
  * Rend l'écran principal (utilisateur connecté)
- * @param {Object} state
- * @param {string} xgram
- * @returns {string} HTML
  */
 export function renderMain(state, xgram) {
     const userStatus = { ...getUserStatus(xgram, state), xgram };
     
     let html = renderUserStatusAlert(userStatus);
     
+    // User bar
     html += `
-        <div class="card">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <div>
-                    <span style="color: var(--color-text-light); font-size: 14px;">Logged in as</span>
-                    <div style="margin-top: 8px;">
-                        <span class="xgram-display">${escapeHtml(xgram)}</span>
-                    </div>
-                </div>
-                <button class="btn btn-small" data-action="reset-user" style="background: #9ca3af; color: white;">Change</button>
+        <div class="user-bar">
+            <div class="user-info">
+                <span class="user-label">Logged in as</span>
+                <span class="user-xgram">${escapeHtml(xgram)}</span>
             </div>
+            <div class="user-actions">
+                <button class="btn-icon" data-action="open-settings" title="Settings" aria-label="Settings">⚙️</button>
+                <button class="btn-change" data-action="reset-user">Change</button>
+            </div>
+        </div>
     `;
     
-    // Sites
+    // Section Charging Stations
+    html += `
+        <div class="section-header">
+            <h2>Charging Stations</h2>
+        </div>
+    `;
+    
     CONFIG.SITES.forEach(site => {
-        html += renderSite(site, state, userStatus);
+        html += renderStationCard(site, state, userStatus);
     });
     
-    // Queue
-    html += renderQueueSection(state, userStatus);
+    // Section Queue
+    html += `
+        <div class="section-header">
+            <h2>Waiting Queue</h2>
+        </div>
+    `;
     
-    html += `</div>`;
+    html += renderQueueSection(state, userStatus);
     
     return html;
 }
