@@ -73,8 +73,10 @@ export function renderDiscordLogin(xgram) {
 
 /**
  * Rend l'alerte de statut utilisateur
+ * @param {Object} userStatus - Statut de l'utilisateur
+ * @param {Object} state - État global pour vérifier les places disponibles
  */
-export function renderUserStatusAlert(userStatus) {
+export function renderUserStatusAlert(userStatus, state = null) {
     if (userStatus.status === 'charging') {
         return `
             <div class="alert alert-success">
@@ -89,13 +91,24 @@ export function renderUserStatusAlert(userStatus) {
     
     if (userStatus.status === 'queued') {
         const isNext = userStatus.position === 1;
+        
+        // Vérifier si une place est disponible pour cette personne (selon sa préférence)
+        let spotAvailable = false;
+        if (isNext && state) {
+            if (userStatus.preference === 'both') {
+                spotAvailable = CONFIG.SITES.some(site => getAvailableSpots(site, state) > 0);
+            } else {
+                spotAvailable = getAvailableSpots(userStatus.preference, state) > 0;
+            }
+        }
+        
         return `
             <div class="alert ${isNext ? 'alert-warning' : 'alert-info'}">
                 <span class="alert-icon">${isNext ? '⏰' : '⏳'}</span>
                 <div class="alert-content">
                     <div class="alert-title">${isNext ? 'You are next in line!' : `Position ${userStatus.position} in queue`}</div>
                     <div class="alert-message">${userStatus.preference === 'both' ? 'Waiting for any site' : `Waiting for ${escapeHtml(userStatus.preference)} only`}</div>
-                    ${isNext ? '<div class="snooze-notice">⏰ You\'ll receive a reminder in 15 minutes if you don\'t plug in</div>' : ''}
+                    ${isNext && spotAvailable ? '<div class="snooze-notice">⏰ A spot is available! You\'ll receive a reminder in 15 minutes if you don\'t plug in</div>' : ''}
                 </div>
             </div>
         `;
@@ -227,7 +240,7 @@ export function renderQueueSection(state, userStatus) {
 export function renderMain(state, xgram) {
     const userStatus = { ...getUserStatus(xgram, state), xgram };
     
-    let html = renderUserStatusAlert(userStatus);
+    let html = renderUserStatusAlert(userStatus, state);
     
     // User bar
     html += `
