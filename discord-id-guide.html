@@ -2,152 +2,357 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#1F1F1F">
     <title>How to Find Your Discord ID - EV Charging Queue</title>
     
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="images/eclair.png">
     <link rel="shortcut icon" type="image/png" href="images/eclair.png">
     
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --primary: #875A7B;
+            --primary-dark: #6C4863;
+            --accent-green: #00CC99;
+            --accent-green-dark: #00A37A;
+            --accent-orange: #FF7A00;
+            --bg: #FFFFFF;
+            --bg-section: #F5F5F4;
+            --bg-card: #FFFFFF;
+            --bg-dark: #1F1F1F;
+            --text: #1F1F1F;
+            --text-secondary: #6B7280;
+            --text-muted: #9CA3AF;
+            --text-on-dark: #FFFFFF;
+            --border: #E5E5E5;
+            --warning: #FFA500;
+            --info: #3b82f6;
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+            --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 4px 24px rgba(0, 0, 0, 0.08);
+            --radius-sm: 6px;
+            --radius-md: 8px;
+            --radius-lg: 12px;
+            --radius-xl: 16px;
+            --radius-full: 999px;
+            --transition: all 0.2s ease;
+        }
+        
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
             min-height: 100vh;
-            padding: 20px;
-            color: #1f2937;
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
         }
-        .container { max-width: 800px; margin: 0 auto; }
-        .header { text-align: center; color: white; margin-bottom: 30px; }
-        .header h1 { font-size: 32px; margin-bottom: 10px; }
-        .header p { opacity: 0.9; font-size: 16px; }
+        
+        /* ============================================
+           Hero Section
+           ============================================ */
+        .hero {
+            background: var(--bg-dark);
+            color: var(--text-on-dark);
+            padding: 32px 24px 24px;
+            padding-top: calc(48px + env(safe-area-inset-top));
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -20%;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(135, 90, 123, 0.3) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        
+        .hero::after {
+            content: '';
+            position: absolute;
+            bottom: -30%;
+            left: -10%;
+            width: 300px;
+            height: 300px;
+            background: radial-gradient(circle, rgba(0, 204, 153, 0.15) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        
+        .hero-content {
+            max-width: 800px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(0, 204, 153, 0.15);
+            color: var(--accent-green);
+            padding: 4px 12px;
+            border-radius: var(--radius-full);
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            border: 1px solid rgba(0, 204, 153, 0.3);
+        }
+        
+        .hero h1 {
+            font-size: 32px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            line-height: 1.2;
+            margin-bottom: 8px;
+        }
+        
+        .hero h1 .accent {
+            color: var(--accent-green);
+            font-weight: 900;
+        }
+        
+        .hero p {
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 15px;
+        }
+        
+        /* ============================================
+           Container
+           ============================================ */
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 24px 16px;
+            padding-bottom: max(24px, env(safe-area-inset-bottom));
+        }
+        
+        /* ============================================
+           Card
+           ============================================ */
         .card {
-            background: white;
-            border-radius: 16px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-xl);
             padding: 32px;
-            margin-bottom: 20px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            box-shadow: var(--shadow-md);
         }
+        
+        /* ============================================
+           Steps
+           ============================================ */
         .step {
             margin-bottom: 32px;
             padding-bottom: 32px;
-            border-bottom: 2px solid #e5e7eb;
+            border-bottom: 1px solid var(--border);
         }
-        .step:last-child { border-bottom: none; padding-bottom: 0; }
+        
+        .step:last-of-type {
+            border-bottom: none;
+            padding-bottom: 0;
+            margin-bottom: 0;
+        }
+        
+        .step-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        
         .step-number {
-            display: inline-block;
-            background: #667eea;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--text);
             color: white;
             width: 32px;
             height: 32px;
-            border-radius: 50%;
-            text-align: center;
-            line-height: 32px;
-            font-weight: bold;
-            margin-right: 12px;
+            border-radius: var(--radius-full);
+            font-weight: 800;
+            font-size: 14px;
+            flex-shrink: 0;
         }
+        
         .step h2 {
-            display: inline-block;
-            font-size: 20px;
-            color: #1f2937;
-            margin-bottom: 16px;
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text);
+            letter-spacing: -0.3px;
         }
+        
         .step p {
-            margin: 16px 0;
+            margin: 12px 0;
             line-height: 1.6;
-            color: #4b5563;
+            color: var(--text);
+            font-size: 15px;
         }
+        
+        .step p strong {
+            font-weight: 700;
+            color: var(--text);
+        }
+        
         .step img {
             width: 100%;
-            border-radius: 8px;
-            border: 2px solid #e5e7eb;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border);
             margin-top: 16px;
         }
-        .warning {
-            background: #fef3c7;
-            border-left: 4px solid #f59e0b;
+        
+        /* ============================================
+           Alerts (note, warning, info)
+           ============================================ */
+        .alert {
             padding: 16px;
-            border-radius: 8px;
-            margin-top: 16px;
+            border-radius: var(--radius-lg);
+            margin: 24px 0;
+            font-size: 14px;
+            line-height: 1.6;
         }
-        .warning strong { color: #92400e; }
-        .note {
-            background: #dbeafe;
-            border-left: 4px solid #3b82f6;
-            padding: 16px;
-            border-radius: 8px;
-            margin-top: 16px;
+        
+        .alert strong {
+            font-weight: 700;
         }
-        .note strong { color: #1e40af; }
-        .btn {
-            display: inline-block;
-            background: #667eea;
-            color: white;
-            padding: 12px 24px;
-            border-radius: 8px;
-            text-decoration: none;
-            font-weight: 600;
-            margin-top: 20px;
-            transition: background 0.2s;
+        
+        .alert-warning {
+            background: rgba(255, 165, 0, 0.1);
+            border-left: 4px solid var(--warning);
+            color: #92400e;
         }
-        .btn:hover { background: #5568d3; }
+        
+        .alert-info {
+            background: rgba(59, 130, 246, 0.1);
+            border-left: 4px solid var(--info);
+            color: #1e40af;
+        }
+        
+        /* ============================================
+           Code
+           ============================================ */
         code {
-            background: #f3f4f6;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-family: monospace;
-            color: #ef4444;
+            background: var(--bg-section);
+            padding: 3px 8px;
+            border-radius: var(--radius-sm);
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--accent-orange);
+            border: 1px solid var(--border);
+        }
+        
+        /* ============================================
+           Back button
+           ============================================ */
+        .back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--accent-green);
+            color: var(--text);
+            padding: 14px 24px;
+            border-radius: var(--radius-md);
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 15px;
+            margin-top: 32px;
+            transition: var(--transition);
+            font-family: inherit;
+        }
+        
+        .back-btn:hover {
+            background: var(--accent-green-dark);
+            color: white;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px rgba(0, 204, 153, 0.3);
+        }
+        
+        .back-btn::before {
+            content: '←';
+            font-size: 16px;
+        }
+        
+        /* ============================================
+           Responsive
+           ============================================ */
+        @media (max-width: 480px) {
+            .hero { padding: 24px 16px; padding-top: calc(40px + env(safe-area-inset-top)); }
+            .hero h1 { font-size: 24px; }
+            .card { padding: 20px; }
+            .step h2 { font-size: 16px; }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>⚡ How to Find Your Discord ID</h1>
-            <p>Get @mentions when it's your turn to charge</p>
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <div class="hero-badge">Setup Guide</div>
+            <h1>How to find your <span class="accent">Discord ID</span></h1>
+            <p>Get @mentions when it's your turn to charge.</p>
         </div>
+    </section>
 
+    <div class="container">
         <div class="card">
             <div class="step">
-                <span class="step-number">1</span>
-                <h2>Click Settings (Gear Icon)</h2>
+                <div class="step-header">
+                    <span class="step-number">1</span>
+                    <h2>Click Settings (Gear Icon)</h2>
+                </div>
                 <p>At the bottom left of Discord, next to your username, click the <strong>gear icon</strong>.</p>
                 <img src="images/discord-step1.png" alt="Discord settings button">
             </div>
 
             <div class="step">
-                <span class="step-number">2</span>
-                <h2>Enable Developer Mode in Advanced Settings</h2>
+                <div class="step-header">
+                    <span class="step-number">2</span>
+                    <h2>Enable Developer Mode in Advanced Settings</h2>
+                </div>
                 <p>In the settings menu on the left, scroll down and click <strong>"Advanced"</strong>, then toggle <strong>"Developer Mode"</strong> to ON (it will turn blue).</p>
                 <img src="images/discord-step2.png" alt="Discord advanced settings and developer mode">
             </div>
 
             <div class="step">
-                <span class="step-number">3</span>
-                <h2>Copy Your User ID</h2>
+                <div class="step-header">
+                    <span class="step-number">3</span>
+                    <h2>Copy Your User ID</h2>
+                </div>
                 <p>Close settings, then <strong>click on your profile picture</strong> (bottom left) and select <strong>"Copy User ID"</strong>.</p>
                 <img src="images/discord-step3.png" alt="Discord copy user ID">
                 <p>Your Discord ID will look something like: <code>123456789012345678</code></p>
             </div>
 
-            <div class="warning">
+            <div class="alert alert-warning">
                 <strong>⚠️ Important:</strong> Your Discord ID is a long number (usually 18 digits). If you copy something else, go back and make sure Developer Mode is enabled first!
             </div>
 
             <div class="step">
-                <span class="step-number">4</span>
-                <h2>Paste It in the App</h2>
+                <div class="step-header">
+                    <span class="step-number">4</span>
+                    <h2>Paste It in the App</h2>
+                </div>
                 <p>Go back to the EV Charging Queue app and paste your Discord ID in the "Discord ID" field.</p>
                 <p>That's it! You'll now receive @mentions in Discord when it's your turn to charge. 🎉</p>
             </div>
 
-            <div class="note">
+            <div class="alert alert-info">
                 <strong>💬 Why do we need this?</strong><br>
                 Your Discord ID allows the app to send you proper @mentions, which trigger push notifications on your phone. Without it, you'll just see your Xgram in messages (like "@ABC") but won't get notified.
             </div>
 
-            <a href="https://groekens.github.io/ev-charging-queue/" class="btn">← Back to App</a>
+            <a href="https://groekens.github.io/ev-charging-queue/" class="back-btn">Back to App</a>
         </div>
     </div>
 </body>
