@@ -15,6 +15,7 @@ export default defineConfig({
                 'js/app.js',
                 'js/render.js',
                 'js/modal.js',
+                'js/pwa-install.js',
             ],
         },
     },
